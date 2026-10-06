@@ -10,8 +10,16 @@ const api = axios.create({
   },
 });
 
+// Normalize endpoint paths if baseURL already includes /api
+api.interceptors.request.use((config) => {
+  if (config.baseURL?.endsWith("/api") && config.url?.startsWith("/api/")) {
+    config.url = config.url.replace(/^\/api/, "");
+  }
+  return config;
+});
+
 export const getHealthStatus = async () => {
-  const response = await api.get("/health");
+  const response = await api.get("/api/health");
   return response.data;
 };
 
