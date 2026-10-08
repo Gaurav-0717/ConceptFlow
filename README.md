@@ -1,238 +1,538 @@
-# ConceptFlow
+# 🧠 ConceptFlow — AI-Powered Visual Learning Platform
 
-ConceptFlow is an AI-powered visual learning platform. Students enter a concept to receive a validated interactive visualization, three-level explanation, key terminology, and a five-question quiz.
+ConceptFlow is an AI-powered learning platform that transforms complex concepts into **easy-to-understand visual explanations, structured learning flows, and interactive quizzes**.
 
-## Current Status: Phases 1–4
-
-> [!NOTE]
-> The MVP includes the full-stack foundation, five visualization engines, validated Gemini generation and learning content, optional MongoDB caching, deterministic fallbacks, and browser-local learning history. Video generation, accounts, and shared cloud history are not included.
+Instead of simply reading long explanations, students can enter a concept or paragraph and ConceptFlow converts it into a visual learning experience with **AI-generated summaries, connected concepts, learning-level explanations, and quizzes**.
 
 ---
 
-## Technology Stack
+## 🚀 Live Deployment
 
-### Frontend (`client/`)
+### 🌐 Frontend
 
-- **Runtime & Tooling:** Vite + React 18 (JavaScript)
-- **Routing:** React Router v7 (`react-router-dom`)
-- **Styling:** Tailwind CSS + PostCSS + Autoprefixer
-- **Icons:** Lucide React (`lucide-react`)
-- **Networking:** Axios (`axios`)
+**Live Application:**
+https://concept-flow-three.vercel.app
 
-### Backend (`server/`)
+### ⚙️ Backend API
 
-- **Runtime:** Node.js (ES Modules)
-- **Framework:** Express.js
-- **Middleware:** CORS, Morgan (HTTP logging)
-- **Abuse Protection:** `express-rate-limit` on AI-backed endpoints
-- **Config:** Dotenv (`.env`)
-- **AI:** Google Gemini via `@google/genai`
-- **Cache:** MongoDB Node.js driver (`mongodb`), optional
-- **Architecture:** Modular MVC structure, Zod validation, centralized safe errors, and optional MongoDB cache
-
-### Learning Data
-
-- Browser `localStorage` holds up to 50 recent concepts and their latest quiz score.
-- MongoDB is optional and stores validated concept-generation cache entries.
-- Quiz answer keys stay in short-lived in-memory server sessions and are returned only after submission.
+**Backend:**
+https://conceptflow-89iq.onrender.com/api/health
 
 ---
 
-## Project Structure
+## ✨ Features
 
+* 🤖 AI-powered concept visualization
+* 🧩 Interactive visual learning flows
+* 🎓 Beginner, Intermediate, and Advanced learning levels
+* 📝 AI-generated interactive quizzes
+* 📚 Learning history
+* 🏆 Weekly, Monthly, and All-Time leaderboards
+* ⭐ XP-based learning system
+* 🔥 Gamification and progress tracking
+* ⚡ MongoDB-based AI response caching
+* 🔄 AI retry and fallback mechanism
+* 🔐 User authentication
+* 📱 Responsive design
+* 🚦 API validation and rate limiting
+
+---
+
+## 🧠 How It Works
+
+```text
+Student enters a concept
+          ↓
+    Backend validates input
+          ↓
+      Gemini AI Pipeline
+          ↓
+ Structured Visualization Schema
+          ↓
+   Visualization Renderer
+          ↓
+ Visual Explanation + Summary
+          ↓
+      Interactive Quiz
+          ↓
+      Score & Feedback
+          ↓
+ Learning History / XP
 ```
-ConceptFlow/
-├── client/                     # Frontend React + Vite application
+
+---
+
+## 🤖 AI-Powered Visualization
+
+ConceptFlow uses the **Google Gemini API** to generate structured educational content.
+
+Instead of directly rendering arbitrary AI-generated UI, the AI response is converted into a controlled visualization schema.
+
+### Visualization Schema
+
+```json
+{
+  "id": "concept-id",
+  "title": "Concept Title",
+  "type": "flowchart",
+  "summary": "Concept summary",
+  "nodes": [],
+  "connections": []
+}
+```
+
+This makes the visualization engine reusable for different subjects and concepts.
+
+---
+
+## ⚡ AI Reliability & Caching
+
+ConceptFlow includes a reliability layer designed to reduce unnecessary AI requests and provide a better experience when AI generation is unavailable.
+
+### Reliability Features
+
+* Google Gemini API integration
+* Automatic retry mechanism
+* MongoDB-based response caching
+* 30-day cache expiration
+* Hashed cache keys
+* Prompt/model/schema versioning
+* AI response validation
+* Fallback educational content
+
+### Fallback Topics
+
+The application includes fallback content for concepts such as:
+
+* Photosynthesis
+* Water Cycle
+* TCP Handshake
+* OSI Model
+* French Revolution
+
+---
+
+## 🎓 Learning Levels
+
+Students can choose how detailed they want the explanation to be.
+
+| Level           | Description                                  |
+| --------------- | -------------------------------------------- |
+| 🟢 Beginner     | Simple language and fundamental concepts     |
+| 🟡 Intermediate | More detailed explanations and relationships |
+| 🔴 Advanced     | Deeper and more technical explanations       |
+
+---
+
+## 📝 Interactive Quiz System
+
+ConceptFlow generates quizzes based on the learning content.
+
+Each quiz includes:
+
+* 5 questions
+* 4 multiple-choice options
+* Server-controlled correct answers
+* Automatic scoring
+* Answer explanations
+
+### Quiz Flow
+
+```text
+Concept
+   ↓
+AI Explanation
+   ↓
+Quiz Generation
+   ↓
+Student Answers
+   ↓
+Score
+   ↓
+Feedback & Explanations
+```
+
+---
+
+## 🏆 Gamification
+
+ConceptFlow uses an XP-based learning system to encourage consistent learning.
+
+```text
+Explore Concept
+      ↓
+Complete Learning Activity
+      ↓
+Complete Quiz
+      ↓
+Earn XP
+      ↓
+Improve Ranking
+```
+
+### Leaderboard Periods
+
+* Weekly
+* Monthly
+* All-Time
+
+---
+
+## 📚 Learning History
+
+Authenticated users can track concepts they have explored.
+
+Learning history can be used to support:
+
+* Previous concepts
+* Learning activity
+* Progress tracking
+* XP calculation
+* Future personalized recommendations
+
+---
+
+## 🗄️ Database
+
+ConceptFlow uses **MongoDB with Mongoose** for persistent application data.
+
+Example models include:
+
+```text
+User
+LearningHistory
+XPActivity
+```
+
+MongoDB is also used for the AI caching layer.
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+
+* React.js
+* Vite
+* JavaScript
+* HTML5
+* CSS3
+* Responsive UI
+
+### Backend
+
+* Node.js
+* Express.js
+* REST APIs
+
+### Database
+
+* MongoDB
+* Mongoose
+
+### AI
+
+* Google Gemini API
+* Generative AI
+* Structured AI responses
+* AI-powered educational content generation
+
+### Deployment & Development
+
+* Git
+* GitHub
+* Vercel
+* Render
+* npm
+
+---
+
+## 🏗️ Project Architecture
+
+```text
+ConceptFlow
+│
+├── client/
 │   ├── src/
-│   │   ├── components/         # Reusable UI components (Navbar, etc.)
-│   │   ├── pages/              # Landing, Dashboard, Create Concept
-│   │   ├── services/           # Axios API service client
-│   │   ├── App.jsx             # React Router configuration
-│   │   ├── main.jsx            # React root DOM mount
-│   │   └── index.css           # Tailwind base styles
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   ├── postcss.config.js
-│   └── package.json
-├── server/                     # Backend Node.js + Express application
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── ...
+│   └── ...
+│
+├── server/
 │   ├── src/
-│   │   ├── controllers/        # API controllers
-│   │   ├── routes/             # Express routers
-│   │   ├── middleware/         # 404 and centralized error handling
-│   │   ├── services/           # Validation, Gemini, Mongo cache, fallback, orchestration
-│   │   ├── app.js              # Express app setup and middleware pipeline
-│   │   └── server.js           # Server bootstrap and port listener
-│   ├── .env                    # Environment variables (PORT=5000, etc.)
-│   ├── .env.example
-│   └── package.json
-├── package.json                # Root orchestration scripts
-├── .gitignore
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   └── ...
+│   └── ...
+│
+├── package.json
 └── README.md
 ```
 
 ---
 
-## Installation
+## 🔌 Backend API
 
-### Prerequisites
+The backend provides REST APIs for:
 
-- Node.js (v20.19+ required by the MongoDB Node.js driver)
-- npm (v9+ recommended)
+```text
+Authentication
+│
+├── User Registration
+└── User Login
 
-### Step 1: Install Root Orchestrator (Optional)
+Learning
+│
+├── Concept Generation
+├── Visualization
+├── Learning Levels
+└── Quiz Generation
+
+Progress
+│
+├── Learning History
+├── XP Activities
+└── Leaderboard
+```
+
+---
+
+## 🧪 Testing
+
+The backend includes automated tests for important application functionality.
+
+Testing covers areas including:
+
+* API endpoints
+* Authentication
+* Visualization generation
+* Learning history
+* Leaderboard
+* Database operations
+* Validation
+* Error handling
+
+---
+
+## 💻 Run Locally
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Gaurav-0717/ConceptFlow.git
+cd ConceptFlow
+```
+
+### 2. Install Dependencies
+
+Install root dependencies:
 
 ```bash
 npm install
 ```
 
-### Step 2: Install Backend Dependencies
+Install frontend dependencies:
 
 ```bash
-cd server
+cd client
 npm install
 ```
 
-### Step 3: Install Frontend Dependencies
+Install backend dependencies:
 
 ```bash
-cd ../client
+cd ../server
 npm install
 ```
 
 ---
 
-## How to Run
+## 🔑 Environment Variables
 
-### Running Backend (Express Server)
+Create the required environment variables for the backend.
+
+### Backend `.env`
+
+```env
+PORT=5000
+
+MONGODB_URI=your_mongodb_connection_string
+
+GEMINI_API_KEY=your_gemini_api_key
+
+GEMINI_MODEL=your_gemini_model
+
+JWT_SECRET=your_jwt_secret
+```
+
+### Frontend `.env`
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+> ⚠️ Never commit `.env` files or API keys to GitHub.
+
+---
+
+## ▶️ Start the Application
+
+### Start Backend
 
 ```bash
 cd server
 npm run dev
 ```
 
-The server will start on `http://localhost:5000`.
+### Start Frontend
 
-Create local environment files from the examples:
-
-```powershell
-Copy-Item server/.env.example server/.env
-Copy-Item client/.env.example client/.env
-```
-
-### Environment Variables & Production Configuration
-
-| Variable             | Where            | Production Status | Purpose                                                                                     |
-| :------------------- | :--------------- | :---------------- | :------------------------------------------------------------------------------------------ |
-| `MONGODB_URI`        | Backend          | **Required**      | MongoDB connection URI. Powers sessions, XP, achievements, history, and cache.              |
-| `JWT_SECRET`         | Backend          | **Required**      | Cryptographically secure signing secret (>= 32 chars, Shannon entropy >= 3.0 bits/char).   |
-| `CLIENT_URL`         | Backend          | **Required**      | Comma-separated allowed frontend origins for CORS (e.g. `https://concept-flow-three.vercel.app`). |
-| `NODE_ENV`           | Backend          | **Required**      | Set to `production` for production security policies, Helmet headers, and index checks.     |
-| `GEMINI_API_KEY`     | Backend          | Conditional       | Required when live AI generation is enabled (`ENABLE_AI_GENERATION=true`). Keep secret.      |
-| `GEMINI_MODEL`       | Backend          | Optional          | Model override; defaults to `gemini-2.5-flash`.                                             |
-| `PORT`               | Backend          | Optional          | Express server port; defaults to 5000.                                                      |
-| `AI_RATE_LIMIT`      | Backend          | Optional          | Maximum concept/explanation requests per 15-minute window (default: 30).                    |
-| `AUTH_RATE_LIMIT`    | Backend          | Optional          | Maximum auth attempts per 15-minute window (default: 10).                                   |
-| `QUIZ_CREATION_RATE_LIMIT` | Backend    | Optional          | Maximum quiz creations per 15-minute window (default: 30).                                  |
-| `QUIZ_SUBMIT_RATE_LIMIT`   | Backend    | Optional          | Maximum quiz submissions per 15-minute window (default: 30).                                |
-| `PROGRESS_RATE_LIMIT`| Backend          | Optional          | Maximum progress/leaderboard reads per 15-minute window (default: 60).                       |
-| `MIGRATION_RATE_LIMIT`| Backend         | Optional          | Maximum learning-history migrations per 15-minute window (default: 10).                      |
-| `TRUST_PROXY`        | Backend          | Optional          | Set to `true` behind reverse proxies (Render, Cloudflare, etc.). Enabled by default in prod.|
-| `VITE_API_URL`       | Client build     | **Required**      | Deployed backend API base URL (e.g. `https://conceptflow-89iq.onrender.com/api`).           |
-| `VITE_DEV_API_PROXY` | Client dev shell | Optional          | Local Vite development proxy target; defaults to `http://localhost:5000`.                  |
-
-### Production Deployment Notes
-
-1. **MongoDB Connection**: MongoDB is mandatory for production operation. Quiz sessions are persisted in MongoDB (`quiz_sessions` collection) with single-use atomic consumption and a 2-hour TTL expiration index.
-2. **Critical Index Verification**: On production startup (`NODE_ENV=production`), Mongoose models are initialized and 7 critical database indexes are strictly verified against the live MongoDB database. If any critical index is missing or incorrect, startup intentionally halts with an exit code of 1.
-3. **API Keys & Privacy**: `GEMINI_API_KEY` and database credentials remain strictly server-side. Quiz answer keys and explanations are never disclosed prior to submission.
-4. **Frontend API URL**: The frontend build must configure `VITE_API_URL` pointing to the deployed backend `/api` endpoint. Standard Helmet security headers and CORS protection are active in production.
-
-
-To test the health endpoint:
-
-```bash
-curl http://localhost:5000/api/health
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "service": "ConceptFlow API",
-  "status": "HEALTHY"
-}
-```
-
-### Running Frontend (React + Vite)
+Open another terminal:
 
 ```bash
 cd client
 npm run dev
 ```
 
-The Vite development server starts on `http://localhost:5173` and proxies `/api` to the backend on port 5000. Set `VITE_DEV_API_PROXY` in the shell if the local backend uses another address.
-
-### Running Both Concurrently (From Root)
-
-```bash
-npm run dev
-```
-
-Or separately from root:
-
-- Backend: `npm run server`
-- Frontend: `npm run client`
+The application will then be available at the local Vite development URL.
 
 ---
 
-## API Endpoints
+## 🌐 Deployment
 
-| Method | Endpoint                            | Description                                                                                    | Status Code                          |
-| :----- | :---------------------------------- | :--------------------------------------------------------------------------------------------- | :----------------------------------- |
-| `GET`  | `/api/health`                       | Service health status check                                                                    | `200 OK`                             |
-| `POST` | `/api/concepts/generate`            | Generate a validated concept using cache, Gemini, or deterministic fallback                    | `200 OK`, `400` for invalid input    |
-| `POST` | `/api/concepts/validate`            | Validate a ConceptFlow concept                                                                 | `200 OK`, `400` for invalid concepts |
-| `POST` | `/api/concepts/preview`             | Validate and return a concept preview                                                          | `200 OK`, `400` for invalid concepts |
-| `POST` | `/api/learning/explanations`        | Return validated beginner, intermediate, and advanced explanations, takeaways, and terminology | `200 OK`, `400` for invalid concepts |
-| `POST` | `/api/learning/quiz`                | Create a five-question quiz without exposing answer keys                                       | `200 OK`, `400` for invalid concepts |
-| `POST` | `/api/learning/quiz/:quizId/submit` | Validate answers and return score plus answer explanations                                     | `200 OK`, `400` for invalid answers  |
-| `*`    | Any other route                     | 404 Route Not Found handler                                                                    | `404 Not Found`                      |
+### Frontend — Vercel
 
-## Generation Reliability
+ConceptFlow frontend is deployed on Vercel.
 
-Generation normalizes the request, checks the optional MongoDB cache, then calls Gemini. Gemini retains its two-attempt retry limit; a validated Gemini result is cached for 30 days when MongoDB is available. Cache keys are SHA-256 hashes over normalized input, subject, difficulty, model, schema version, and prompt version. Bump the explicit schema or prompt version in `server/src/services/conceptCacheService.js` when those contracts change.
+**Production URL:**
 
-Every cache hit and fallback is revalidated with the existing ConceptFlow schema and semantic rules. If Gemini remains unavailable or returns invalid data after its retries, deterministic templates cover photosynthesis, the water cycle, TCP handshake, the OSI model, and the French Revolution; other topics receive a generic study-flow template. MongoDB failures do not block Gemini or fallback generation.
+https://concept-flow-three.vercel.app/
 
-Generation responses use `source: "gemini"`, `source: "cache"`, or `source: "fallback"`. Learning endpoints use `gemini` or `fallback`; fallback content is labeled as ConceptFlow's offline learning engine. Fallbacks are useful study scaffolds, not equivalent to AI-generated explanations.
+### Backend — Render
 
-Explanations and quizzes use the existing Gemini service with strict Zod response contracts and bounded retries. Invalid or unavailable responses fall back to concept-derived content. Correct quiz answers are held in memory for two hours and disclosed only after submission; a backend restart expires active quizzes.
+The backend is deployed separately on Render.
 
-## Testing
+Configure the following environment variables on Render:
 
-```powershell
-npm test --prefix server
-npm run test:visualizations --prefix client
-npm run test:learning --prefix client
-npm run build --prefix client
+```text
+MONGODB_URI
+GEMINI_API_KEY
+GEMINI_MODEL
+JWT_SECRET
 ```
 
-The backend suite uses mocked Gemini output and offline Express integration checks. No live Gemini or MongoDB service is required. Existing fixed-port Phase 3 HTTP checks run when the backend is listening on port 5000.
+Then configure the frontend production API URL to point to the deployed backend.
 
-## Deployment
+---
 
-Build the client with `npm run build --prefix client` and deploy `client/dist` to a static host. Set `VITE_API_URL` at build time to the public API base URL ending in `/api`, or leave it as `/api` and configure the static host/reverse proxy to forward `/api` to Express. Never ship Gemini or MongoDB credentials in any `VITE_` variable.
+## 🔒 Security
 
-Run the backend with `npm start --prefix server` on Node.js 20.19 or newer. Set `NODE_ENV=production`, `PORT`, and `CLIENT_URL` to the deployed frontend origin(s), comma-separated if needed. Configure `GEMINI_API_KEY` for AI, optionally `GEMINI_MODEL` and `MONGODB_URI`, and tune `AI_RATE_LIMIT` for expected traffic. Set `TRUST_PROXY=true` only when Express is behind a trusted single reverse proxy. Terminate HTTPS at the hosting platform or reverse proxy.
+ConceptFlow follows basic production security practices:
 
-The health check is `GET /api/health`. CORS defaults to local development origins and should be configured explicitly for production. MongoDB is an optional cache, not required for startup. Learning history is local to one browser profile and is not synced across devices or users. Quiz sessions are in-memory and do not survive backend restarts.
+* Environment variables for secrets
+* API key protection
+* Authentication middleware
+* Protected API routes
+* Request validation
+* Rate limiting
+* CORS configuration
+* Server-side quiz answer handling
+* MongoDB/Mongoose validation
+* Sensitive configuration excluded from Git
 
-## Known Limitations
+---
 
-- Live Gemini generation requires a backend API key and has not been verified without configured credentials.
-- Browser-local history can be cleared with browser data and is not a cross-device account history.
-- Fallback explanations and quizzes are deterministic study scaffolds.
-- Quiz sessions expire after two hours.
-- Video generation, authentication, accounts, PDF import, and persistent quiz history are outside this MVP.
+## 📱 Responsive Design
+
+ConceptFlow is designed for:
+
+```text
+Desktop
+   ↓
+Tablet
+   ↓
+Mobile
+```
+
+The visualization interface includes responsive controls and is optimized for smaller screens.
+
+---
+
+## 🎯 Project Objective
+
+Traditional learning often looks like:
+
+```text
+Long Text
+   ↓
+Read
+   ↓
+Memorize
+```
+
+ConceptFlow provides an interactive alternative:
+
+```text
+Concept
+   ↓
+AI Explanation
+   ↓
+Visual Structure
+   ↓
+Interactive Learning
+   ↓
+Quiz
+   ↓
+Progress
+```
+
+The goal is to make learning **more visual, interactive, and personalized**.
+
+---
+
+## 🔮 Future Enhancements
+
+* 📈 Advanced student analytics
+* 🧠 Personalized learning recommendations
+* 🗂️ Subject and topic categorization
+* 🎮 Extended gamification
+* 🏅 Badges and achievements
+* 📊 Detailed progress dashboard
+* 👥 Social learning
+* 📚 AI-generated study plans
+* 🎤 Voice-based concept input
+* 📄 PDF/document concept extraction
+
+---
+
+## 👨‍💻 Author
+
+### Gaurav Vasant Shingare
+
+**Computer Engineering Student | Full-Stack Developer**
+
+Interested in building full-stack applications using **MERN, AI/ML, and modern web technologies**.
+
+### 🔗 Links
+
+* 🌐 **Live Project:** https://concept-flow-three.vercel.app/
+* 💻 **GitHub:** https://github.com/Gaurav-0717
+* 🧩 **ConceptFlow Repository:** https://github.com/Gaurav-0717/ConceptFlow
+* 🧠 **LeetCode:** https://leetcode.com/u/Gaurav_Shingare/
+
+---
+
+## ⭐ Support
+
+If you find ConceptFlow useful or interesting, consider giving the repository a ⭐ on GitHub.
+
+---
+
+## 📄 License
+
+This project is developed for educational and portfolio purposes.
