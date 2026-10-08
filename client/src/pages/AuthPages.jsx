@@ -9,12 +9,12 @@ import {
 
 const AuthShell = ({ title, subtitle, children, footer }) => (
   <div className="mx-auto flex min-h-[calc(100vh-12rem)] max-w-5xl items-center justify-center px-4 py-12 sm:px-6">
-    <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+    <section className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-6 shadow-card-soft sm:p-8 animate-fade-in">
       <div className="mb-6">
-        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white">
-          <Sparkles className="h-5 w-5" />
+        <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-blue-500 text-white shadow-lg shadow-indigo-500/25">
+          <Sparkles className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900 font-display">{title}</h1>
         <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
       </div>
       {children}
@@ -27,12 +27,12 @@ const AuthShell = ({ title, subtitle, children, footer }) => (
 
 const Input = ({ id, label, ...props }) => (
   <div className="space-y-1.5">
-    <label htmlFor={id} className="text-sm font-medium text-slate-800">
+    <label htmlFor={id} className="text-xs font-bold uppercase tracking-wider text-slate-700">
       {label}
     </label>
     <input
       id={id}
-      className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+      className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-400"
       {...props}
     />
   </div>

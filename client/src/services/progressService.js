@@ -13,12 +13,19 @@ const request = async (
   }
 };
 
+let inFlightProgress = null;
+
 /**
  * Fetches student progress summary from GET /api/progress.
- * Requires active authentication (bearer token attached by api client).
+ * Deduplicates in-flight requests to prevent concurrent network stampedes.
  */
-export const getUserProgress = () =>
-  request(api.get("/progress"));
+export const getUserProgress = () => {
+  if (inFlightProgress) return inFlightProgress;
+  inFlightProgress = request(api.get("/progress")).finally(() => {
+    inFlightProgress = null;
+  });
+  return inFlightProgress;
+};
 
 export default {
   getUserProgress,

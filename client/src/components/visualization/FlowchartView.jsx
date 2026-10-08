@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ArrowRight, Info, ChevronRight, Activity } from "lucide-react";
+import { ArrowRight, Info, ChevronRight, Activity, BookOpen } from "lucide-react";
 
 /**
  * FlowchartView
@@ -11,6 +11,7 @@ const FlowchartView = ({ concept }) => {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [flowOrientation, setFlowOrientation] = useState("horizontal"); // "horizontal" or "vertical"
+  const [showDetails, setShowDetails] = useState(false);
 
   const nodes = concept?.nodes || [];
   const connections = concept?.connections || [];
@@ -130,32 +131,51 @@ const FlowchartView = ({ concept }) => {
     <div className="space-y-6">
       {/* Flow Controls & Legend */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Flow Direction:
-          </span>
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
-            <button
-              onClick={() => setFlowOrientation("horizontal")}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                flowOrientation === "horizontal"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Left to Right →
-            </button>
-            <button
-              onClick={() => setFlowOrientation("vertical")}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                flowOrientation === "vertical"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Top to Bottom ↓
-            </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Flow Direction:
+            </span>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setFlowOrientation("horizontal")}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  flowOrientation === "horizontal"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Left to Right →
+              </button>
+              <button
+                type="button"
+                onClick={() => setFlowOrientation("vertical")}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  flowOrientation === "vertical"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Top to Bottom ↓
+              </button>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowDetails((prev) => !prev)}
+            aria-expanded={showDetails}
+            aria-controls="flowchart-details-panel"
+            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md border transition-all cursor-pointer pointer-events-auto ${
+              showDetails
+                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>{showDetails ? "Details ↑" : "Details ↓"}</span>
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
@@ -177,6 +197,121 @@ const FlowchartView = ({ concept }) => {
           </span>
         </div>
       </div>
+
+      {/* Expanded Flowchart Details Panel */}
+      {showDetails && (
+        <div
+          id="flowchart-details-panel"
+          className="rounded-2xl bg-white border border-slate-200 shadow-xs p-5 sm:p-6 space-y-6 animate-in fade-in transition-all"
+        >
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-100">
+            <div className="space-y-1.5 max-w-3xl">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                  <BookOpen className="w-4 h-4" />
+                </span>
+                <h3 className="text-base font-bold text-slate-900">
+                  Detailed Explanation: {concept?.title || "Concept Flowchart"}
+                </h3>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {concept?.summary ||
+                  "Detailed conceptual breakdown and flow mechanisms for this topic."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDetails(false)}
+              className="self-start text-xs font-semibold text-slate-500 hover:text-slate-900 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors pointer-events-auto cursor-pointer"
+            >
+              Details ↑
+            </button>
+          </div>
+
+          {/* Key Principles & Takeaways */}
+          {concept?.keyTakeaways && concept.keyTakeaways.length > 0 && (
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Key Principles & Takeaways
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {concept.keyTakeaways.map((takeaway, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 leading-relaxed"
+                  >
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 shrink-0 font-bold text-[11px] mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <span>{takeaway}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Stage-by-Stage Flow Breakdown */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Stage-by-Stage Flow Breakdown ({levels.length} Stages • {nodes.length} Components)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {levels.map((levelNodes, lvlIdx) => (
+                <div
+                  key={lvlIdx}
+                  className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/70">
+                    <span className="text-xs font-bold text-slate-800">
+                      Stage {lvlIdx + 1}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {levelNodes.length}{" "}
+                      {levelNodes.length === 1 ? "component" : "components"}
+                    </span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {levelNodes.map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() =>
+                          setSelectedNodeId(
+                            n.id === selectedNodeId ? null : n.id,
+                          )
+                        }
+                        className={`p-3 rounded-lg border text-left transition-all cursor-pointer pointer-events-auto ${
+                          selectedNodeId === n.id
+                            ? "bg-indigo-50/80 border-indigo-400 shadow-xs"
+                            : "bg-white border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-xs font-bold text-slate-900">
+                            {n.label}
+                          </span>
+                          <span
+                            className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded border ${getCategoryColor(
+                              n.category,
+                            )}`}
+                          >
+                            {n.category || "Entity"}
+                          </span>
+                        </div>
+                        {n.description && (
+                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                            {n.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Flow Canvas */}
       <div className="relative p-6 sm:p-8 rounded-2xl bg-white border border-slate-200 shadow-xs overflow-x-auto min-h-[420px]">
@@ -264,9 +399,23 @@ const FlowchartView = ({ concept }) => {
                         {/* Incoming/Outgoing badge summary */}
                         <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                           <span>In: {incoming.length}</span>
-                          <span className="flex items-center gap-1 text-indigo-600 font-medium">
-                            Details <ChevronRight className="w-3 h-3" />
-                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedNodeId((prev) =>
+                                prev === node.id ? null : node.id,
+                              );
+                            }}
+                            className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer pointer-events-auto"
+                            aria-label={`Toggle details for ${node.label}`}
+                          >
+                            <span>
+                              {selectedNodeId === node.id
+                                ? "Details ↑"
+                                : "Details ↓"}
+                            </span>
+                          </button>
                           <span>Out: {outgoing.length}</span>
                         </div>
                       </div>
@@ -381,10 +530,11 @@ const FlowchartView = ({ concept }) => {
               </h4>
             </div>
             <button
+              type="button"
               onClick={() => setSelectedNodeId(null)}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+              className="text-xs font-semibold text-slate-500 hover:text-slate-900 px-2 py-1 rounded hover:bg-white/80 transition-colors cursor-pointer pointer-events-auto"
             >
-              Close
+              Details ↑
             </button>
           </div>
           <p className="text-xs text-slate-700 leading-relaxed">

@@ -19,6 +19,32 @@ import {
   setMigrationOwner,
 } from "../services/learningHistoryService";
 
+const MIGRATION_ATTEMPT_KEY = "conceptflow.history-migration-attempted.v1";
+
+const hasAttemptedMigrationThisSession = (userId) => {
+  try {
+    return sessionStorage.getItem(MIGRATION_ATTEMPT_KEY) === userId;
+  } catch {
+    return false;
+  }
+};
+
+const markMigrationAttemptedThisSession = (userId) => {
+  try {
+    sessionStorage.setItem(MIGRATION_ATTEMPT_KEY, userId);
+  } catch {
+    // SessionStorage degradation is safe
+  }
+};
+
+const clearMigrationAttemptThisSession = () => {
+  try {
+    sessionStorage.removeItem(MIGRATION_ATTEMPT_KEY);
+  } catch {
+    // SessionStorage degradation is safe
+  }
+};
+
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -36,6 +62,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const migrateLocalHistory = async (authenticatedUser) => {
+    if (!authenticatedUser?.id) return;
+    if (hasAttemptedMigrationThisSession(authenticatedUser.id)) return;
+
     const records = getLearningHistory();
     if (!records.length) return;
     const owner = getMigrationOwner();
@@ -48,6 +77,7 @@ export const AuthProvider = ({ children }) => {
     if (!validRecords.length) {
       clearLearningHistory();
       clearMigrationOwner();
+      clearMigrationAttemptThisSession();
       return;
     }
 
@@ -77,9 +107,14 @@ export const AuthProvider = ({ children }) => {
       if (result.success) {
         clearLearningHistory();
         clearMigrationOwner();
+        clearMigrationAttemptThisSession();
+      } else {
+        markMigrationAttemptedThisSession(authenticatedUser.id);
       }
     } catch {
-      // Preserve local data for this same account to retry on the next session.
+      // Preserve local data for this same account to retry on a future browser session,
+      // but do not spam requests during the current browser session.
+      markMigrationAttemptedThisSession(authenticatedUser.id);
     }
   };
 
@@ -94,6 +129,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const clearSession = () => {
+    clearMigrationAttemptThisSession();
     persistToken("");
     setUser(null);
   };

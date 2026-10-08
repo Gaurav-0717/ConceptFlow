@@ -589,85 +589,159 @@ const LearningPanel = ({
           </p>
         )}
         {quiz && activeQuizQuestion && (
-          <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Question {activeQuestion + 1} of {quiz.questions.length}
-              </span>
-              <span className="text-xs font-medium text-slate-500">
-                {SOURCE_LABELS[quizSource]}
-              </span>
+          <div className="space-y-5 rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card-soft">
+            {/* Header: Question Progress & Bar */}
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 font-display">
+                  Question {activeQuestion + 1} of {quiz.questions.length}
+                </span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                  {SOURCE_LABELS[quizSource] || "Interactive Assessment"}
+                </span>
+              </div>
+
+              {/* Animated Progress Bar */}
+              <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-300 ease-out"
+                  style={{
+                    width: `${((activeQuestion + 1) / quiz.questions.length) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
+
             {!quizResult ? (
-              <fieldset className="space-y-3">
-                <legend className="mb-3 text-base font-semibold text-slate-900">
-                  {activeQuizQuestion.question}
-                </legend>
-                {activeQuizQuestion.options.map((option, optionIndex) => (
-                  <label
-                    key={`${activeQuizQuestion.id}-${optionIndex}`}
-                    className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm transition-colors ${selectedAnswers[activeQuizQuestion.id] === optionIndex ? "border-indigo-500 bg-indigo-50 text-indigo-900" : "border-slate-200 hover:bg-slate-50"}`}
-                  >
-                    <input
-                      type="radio"
-                      name={activeQuizQuestion.id}
-                      value={optionIndex}
-                      checked={
-                        selectedAnswers[activeQuizQuestion.id] === optionIndex
-                      }
-                      onChange={() =>
-                        setSelectedAnswers((answers) => ({
-                          ...answers,
-                          [activeQuizQuestion.id]: optionIndex,
-                        }))
-                      }
-                      className="mt-0.5 accent-indigo-600"
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
-              </fieldset>
-            ) : (
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-lg font-bold text-slate-900">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                  {quizResult.score} / {quizResult.total} correct (
-                  {quizResult.percentage}%)
-                </div>
-                {quizResult.answers.map((answer, index) => {
-                  const question = quiz.questions.find(
-                    (item) => item.id === answer.questionId,
-                  );
-                  return (
-                    <div
-                      key={answer.questionId}
-                      className="rounded-md border border-slate-200 p-3"
-                    >
-                      <p className="text-sm font-semibold text-slate-800">
-                        {index + 1}. {question?.question}
-                      </p>
-                      <p
-                        className={`mt-1 text-sm ${answer.correct ? "text-emerald-700" : "text-rose-700"}`}
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug font-display">
+                  {activeQuizQuestion.question}
+                </h3>
+
+                {/* Large Selectable Option Cards */}
+                <div className="grid grid-cols-1 gap-2.5">
+                  {activeQuizQuestion.options.map((option, optionIndex) => {
+                    const isSelected = selectedAnswers[activeQuizQuestion.id] === optionIndex;
+                    const optionLetter = String.fromCharCode(65 + optionIndex);
+
+                    return (
+                      <button
+                        key={`${activeQuizQuestion.id}-${optionIndex}`}
+                        type="button"
+                        onClick={() =>
+                          setSelectedAnswers((answers) => ({
+                            ...answers,
+                            [activeQuizQuestion.id]: optionIndex,
+                          }))
+                        }
+                        className={`w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl border text-left transition-all duration-200 group ${
+                          isSelected
+                            ? "border-indigo-600 bg-gradient-to-r from-indigo-50/90 to-purple-50/50 shadow-sm ring-2 ring-indigo-500/20 font-semibold"
+                            : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50/70"
+                        }`}
                       >
-                        {answer.correct
-                          ? "Correct"
-                          : `Correct answer: ${question?.options[answer.correctAnswerIndex]}`}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-slate-600">
-                        {answer.explanation}
-                      </p>
-                    </div>
-                  );
-                })}
-                <button
-                  type="button"
-                  onClick={startQuiz}
-                  disabled={isLoadingQuiz}
-                  className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Restart quiz
-                </button>
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition-colors ${
+                            isSelected
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
+                          }`}
+                        >
+                          {optionLetter}
+                        </span>
+                        <span className="text-sm text-slate-800 leading-normal flex-1">
+                          {option}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* Quiz Results & Celebration Screen */
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-white p-6 text-center space-y-3">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25">
+                    <CheckCircle2 className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-extrabold text-slate-900 font-display">
+                      {quizResult.percentage >= 80 ? "Great work! 🎉" : "Quiz Complete! 👏"}
+                    </h3>
+                    <p className="text-sm text-slate-600 mt-0.5">
+                      You scored {quizResult.score} out of {quizResult.total} ({quizResult.percentage}%)
+                    </p>
+                  </div>
+
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 shadow-sm border border-emerald-200 text-xs font-bold text-emerald-800">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>+{quizResult.percentage >= 80 ? "30" : "20"} XP Earned</span>
+                  </div>
+                </div>
+
+                {/* Question Review Breakdown */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Detailed Review
+                  </h4>
+                  {quizResult.answers.map((answer, index) => {
+                    const question = quiz.questions.find(
+                      (item) => item.id === answer.questionId,
+                    );
+                    return (
+                      <div
+                        key={answer.questionId}
+                        className={`rounded-xl border p-4 space-y-1.5 ${
+                          answer.correct
+                            ? "border-emerald-200/80 bg-emerald-50/30"
+                            : "border-rose-200/80 bg-rose-50/30"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-bold text-slate-900">
+                            {index + 1}. {question?.question}
+                          </p>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                              answer.correct
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
+                            }`}
+                          >
+                            {answer.correct ? "Correct" : "Incorrect"}
+                          </span>
+                        </div>
+                        {!answer.correct && (
+                          <p className="text-xs font-semibold text-rose-700">
+                            Correct: {question?.options[answer.correctAnswerIndex]}
+                          </p>
+                        )}
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          {answer.explanation}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* CTAs */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={startQuiz}
+                    disabled={isLoadingQuiz}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Retake Quiz</span>
+                  </button>
+                  <a
+                    href="#learning-explanation-heading"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 px-3 py-2"
+                  >
+                    Review Explanation
+                  </a>
+                </div>
               </div>
             )}
 
@@ -679,7 +753,7 @@ const LearningPanel = ({
                     setActiveQuestion((index) => Math.max(0, index - 1))
                   }
                   disabled={activeQuestion === 0}
-                  className="inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4" /> Previous
                 </button>
@@ -692,7 +766,7 @@ const LearningPanel = ({
                           Math.min(quiz.questions.length - 1, index + 1),
                         )
                       }
-                      className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                      className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors"
                     >
                       Next <ChevronRight className="h-4 w-4" />
                     </button>
@@ -704,12 +778,12 @@ const LearningPanel = ({
                         Object.keys(selectedAnswers).length !==
                           quiz.questions.length || isSubmittingQuiz
                       }
-                      className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/25 hover:from-indigo-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-display"
                     >
                       {isSubmittingQuiz && (
                         <LoaderCircle className="h-4 w-4 animate-spin" />
                       )}
-                      Submit quiz
+                      <span>Submit Quiz</span>
                     </button>
                   )}
                 </div>

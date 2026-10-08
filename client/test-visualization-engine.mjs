@@ -52,6 +52,8 @@ runTest("Direct render FlowchartView", () => {
   const c = sampleConcepts.find(s => s.type === "flowchart");
   const html = ReactDOMServer.renderToString(React.createElement(FlowchartView, { concept: c }));
   if (!html.includes("sunlight") && !html.includes("glucose")) throw new Error("Flowchart missing expected nodes");
+  if (!html.includes("Details ↓")) throw new Error("Flowchart missing 'Details ↓' button control");
+  if (!html.includes("aria-controls=\"flowchart-details-panel\"")) throw new Error("Flowchart missing accessible details panel connection");
 });
 
 runTest("Direct render CycleView", () => {

@@ -1,90 +1,60 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowUpRight,
+  ArrowRight,
   BookOpen,
   PlusCircle,
   RotateCw,
   Zap,
+  Flame,
   Target,
   GraduationCap,
   Award,
   AlertCircle,
+  Sparkles,
+  Compass,
+  CheckCircle2,
+  Clock3,
 } from "lucide-react";
+import StatCard from "../components/dashboard/StatCard";
+import ProgressRing from "../components/dashboard/ProgressRing";
+import ConceptMapPreview from "../components/dashboard/ConceptMapPreview";
+import LearningJourney from "../components/dashboard/LearningJourney";
+import FeaturedConceptCard from "../components/dashboard/FeaturedConceptCard";
+import LeaderboardPreviewCard from "../components/dashboard/LeaderboardPreviewCard";
+import AchievementBadge, { ALL_ACHIEVEMENTS } from "../components/dashboard/AchievementBadge";
 import useUserLearningHistory from "../hooks/useUserLearningHistory";
 import useUserProgress from "../hooks/useUserProgress";
-import StreakCard from "../components/dashboard/StreakCard";
-import DailyGoalBar from "../components/dashboard/DailyGoalBar";
-import StatCard from "../components/dashboard/StatCard";
+import { useAuth } from "../context/AuthContext";
+import { sampleConcepts } from "../data/sampleConcepts";
+
+const getGreeting = (name) => {
+  const hour = new Date().getHours();
+  let timeStr = "Good day";
+  if (hour < 12) timeStr = "Good morning";
+  else if (hour < 17) timeStr = "Good afternoon";
+  else timeStr = "Good evening";
+
+  return name ? `${timeStr}, ${name} 👋` : `${timeStr} 👋`;
+};
 
 const formatAccessTime = (value) => {
   const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "Recently"
-    : date.toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-};
+  if (Number.isNaN(date.getTime())) return "Recently";
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / (60 * 1000));
+  const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
 
-/**
- * Achievement display metadata.
- * Keyed by achievementId as stored in the database.
- * Any unknown ID falls back to ACHIEVEMENT_FALLBACK below.
- */
-const ACHIEVEMENT_META = {
-  first_concept: {
-    emoji: "🧠",
-    label: "First Concept",
-    description: "Explored your first concept.",
-    color: "bg-indigo-50 border-indigo-200 text-indigo-800",
-  },
-  first_quiz: {
-    emoji: "📝",
-    label: "First Quiz",
-    description: "Completed your first quiz.",
-    color: "bg-violet-50 border-violet-200 text-violet-800",
-  },
-  quiz_master: {
-    emoji: "🏅",
-    label: "Quiz Master",
-    description: "Completed 5 quizzes.",
-    color: "bg-amber-50 border-amber-200 text-amber-800",
-  },
-  streak_3: {
-    emoji: "🔥",
-    label: "3-Day Streak",
-    description: "Kept a 3-day learning streak.",
-    color: "bg-orange-50 border-orange-200 text-orange-800",
-  },
-  streak_7: {
-    emoji: "⚡",
-    label: "7-Day Streak",
-    description: "Maintained a 7-day learning streak.",
-    color: "bg-rose-50 border-rose-200 text-rose-800",
-  },
-  xp_100: {
-    emoji: "🌟",
-    label: "Rising Star",
-    description: "Earned 100 XP.",
-    color: "bg-emerald-50 border-emerald-200 text-emerald-800",
-  },
-  xp_500: {
-    emoji: "🏆",
-    label: "XP Champion",
-    description: "Earned 500 XP.",
-    color: "bg-yellow-50 border-yellow-200 text-yellow-800",
-  },
-};
-
-const ACHIEVEMENT_FALLBACK = {
-  emoji: "🎖️",
-  label: "Achievement Unlocked",
-  description: "Keep learning to discover more.",
-  color: "bg-slate-50 border-slate-200 text-slate-700",
+  if (diffMins < 2) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
 const DashboardPage = () => {
+  const { user } = useAuth();
   const {
     history,
     loading: historyLoading,
@@ -99,7 +69,7 @@ const DashboardPage = () => {
     refresh: refreshProgress,
   } = useUserProgress();
 
-  // Safely extract progress metrics
+  // Safely extract real metrics
   const totalXP = progress?.totalXP ?? 0;
   const todayXP = progress?.todayXP ?? 0;
   const currentStreak = progress?.currentStreak ?? 0;
@@ -111,7 +81,7 @@ const DashboardPage = () => {
   const quizzesCompleted = progress?.quizzesCompleted ?? 0;
   const quizAccuracy = progress?.quizAccuracy ?? 0;
 
-  // Calculate daily goal progress (target: 5 activities per day)
+  // Real daily goal calculation (target: 5)
   const DAILY_GOAL_TARGET = progress?.dailyGoalTarget || 5;
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -131,357 +101,397 @@ const DashboardPage = () => {
       Math.max(activitiesToday, Math.floor(todayXP / 10)),
     );
 
-  const quizAttempts = history.filter((item) => item.quizTotal > 0);
-  const latestQuizResults = quizAttempts.slice(0, 5);
+  const rawAchievements = Array.isArray(progress?.achievements)
+    ? progress.achievements
+    : [];
+  const achievementsCount = rawAchievements.length;
+
+  // Featured concept: most recent from history, or first curated sample
+  const mostRecentItem = history.length > 0 ? history[0] : null;
 
   const handleRefreshAll = () => {
     refreshProgress();
     refreshHistory();
   };
 
+  const userName = user?.name ? user.name.split(" ")[0] : "";
+
   return (
-    <div className="mx-auto max-w-6xl space-y-7 px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Learning Dashboard
-            </h1>
-            <button
-              type="button"
-              onClick={handleRefreshAll}
-              title="Refresh dashboard"
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              aria-label="Refresh dashboard"
-            >
-              <RotateCw
-                className={`h-4 w-4 ${progressLoading || historyLoading ? "animate-spin text-indigo-600" : ""}`}
-              />
-            </button>
-          </div>
-          <p className="mt-1 text-sm text-slate-600">
-            Track your XP, streaks, daily goals, and concept mastery.
-          </p>
-        </div>
-        <Link
-          to="/create-concept"
-          className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:self-auto"
-        >
-          <PlusCircle className="h-4 w-4" /> Create a concept
-        </Link>
-      </header>
+    <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+        {/* ========================================================= */}
+        {/* 1. HERO HEADER                                           */}
+        {/* ========================================================= */}
+        <section className="relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-gradient-to-r from-navy-950 via-slate-900 to-indigo-950 p-6 sm:p-9 text-white shadow-xl">
+          {/* Ambient glow lights */}
+          <div className="absolute top-0 right-0 h-80 w-80 rounded-full bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-cyan-500/10 blur-2xl pointer-events-none" />
 
-      {/* Progress Error Banner */}
-      {progressError && (
-        <div
-          className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 shadow-sm"
-          role="alert"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <AlertCircle className="h-5 w-5 shrink-0 text-rose-600" />
-            <p className="font-medium truncate">{progressError}</p>
-          </div>
-          <button
-            type="button"
-            onClick={refreshProgress}
-            className="shrink-0 rounded-md bg-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-900 hover:bg-rose-200 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-xs font-semibold backdrop-blur-md border border-white/15">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>
+                  🔥 {currentStreak} day learning streak
+                </span>
+                <span className="text-white/40">·</span>
+                <span className="text-indigo-200">
+                  {todayXP > 0 ? `+${todayXP} XP today` : "Ready to learn"}
+                </span>
+              </div>
 
-      {/* Student Progress Overview */}
-      <section aria-label="Student progress" className="space-y-4">
-        {progressLoading ? (
-          /* Loading Skeletons */
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-28 animate-pulse rounded-xl border border-slate-200 bg-white p-4"
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-display">
+                {getGreeting(userName)}
+              </h1>
+
+              <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
+                Turn what you learn into concepts you can actually understand.
+              </p>
+            </div>
+
+            {/* Hero Actions */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                to={mostRecentItem ? `/visualize/${encodeURIComponent(mostRecentItem.conceptId)}` : "/visualize"}
+                state={mostRecentItem?.concept ? { concept: mostRecentItem.concept } : undefined}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 transition-all"
               >
-                <div className="h-4 w-24 rounded bg-slate-200" />
-                <div className="mt-4 h-7 w-16 rounded bg-slate-200" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* Loaded Progress Cards */
-          <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {/* 1. Compact Streak Card */}
-              <StreakCard
-                currentStreak={currentStreak}
-                longestStreak={longestStreak}
-              />
-
-              {/* 2. Total XP Card */}
-              <StatCard
-                icon={Zap}
-                label="Total XP"
-                value={`${totalXP.toLocaleString()} XP`}
-                badgeText={todayXP > 0 ? `+${todayXP} today` : null}
-                badgeColor="emerald"
-                iconBgColor="bg-amber-50"
-                iconColor="text-amber-600"
-                subtext={
-                  todayXP > 0
-                    ? "Points earned today"
-                    : "Complete activities to earn XP"
-                }
-              />
-
-              {/* 3. Today's Goal Progress Bar */}
-              <DailyGoalBar
-                current={dailyGoalCurrent}
-                target={DAILY_GOAL_TARGET}
-              />
-
-              {/* 4. Quiz Accuracy Card */}
-              <StatCard
-                icon={Target}
-                label="Quiz Accuracy"
-                value={`${quizAccuracy}%`}
-                iconBgColor="bg-emerald-50"
-                iconColor="text-emerald-600"
-                subtext={
-                  quizzesCompleted > 0
-                    ? `${quizzesCompleted} ${quizzesCompleted === 1 ? "quiz" : "quizzes"} completed`
-                    : "No quizzes taken yet"
-                }
-              />
+                <span>Continue Learning</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/create-concept"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white border border-white/20 backdrop-blur-sm hover:bg-white/20 transition-all"
+              >
+                <Compass className="h-4 w-4 text-indigo-300" />
+                <span>Explore Concepts</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleRefreshAll}
+                title="Refresh live data"
+                className="rounded-xl p-3 text-slate-300 hover:bg-white/10 hover:text-white transition-colors border border-white/10"
+                aria-label="Refresh data"
+              >
+                <RotateCw
+                  className={`h-4 w-4 ${progressLoading || historyLoading ? "animate-spin text-indigo-400" : ""}`}
+                />
+              </button>
             </div>
-
-            {/* Secondary Milestone Metrics */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                  <GraduationCap className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Concepts Completed
-                  </p>
-                  <p className="text-xl font-bold text-slate-900">
-                    {conceptsCompleted}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-                  <Award className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Quizzes Completed
-                  </p>
-                  <p className="text-xl font-bold text-slate-900">
-                    {quizzesCompleted}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </section>
-
-      {/* Learning History Section */}
-      <section aria-labelledby="history-heading" className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-indigo-600" />
-            <h2
-              id="history-heading"
-              className="text-lg font-bold text-slate-900"
-            >
-              Recently Explored
-            </h2>
           </div>
-          {historyLoading && (
-            <span className="text-xs text-slate-500">Loading history…</span>
-          )}
-        </div>
+        </section>
 
-        {historyError ? (
+        {/* Error Notice */}
+        {progressError && (
           <div
-            className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 shadow-sm"
             role="alert"
           >
-            <p>{historyError}</p>
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertCircle className="h-5 w-5 shrink-0 text-rose-600" />
+              <p className="font-medium truncate">{progressError}</p>
+            </div>
             <button
               type="button"
-              onClick={refreshHistory}
-              className="mt-2 font-semibold underline hover:text-rose-950"
+              onClick={refreshProgress}
+              className="shrink-0 rounded-lg bg-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-900 hover:bg-rose-200 transition-colors"
             >
               Retry
             </button>
           </div>
-        ) : historyLoading && !history.length ? (
-          <div
-            className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500"
-            role="status"
-          >
-            Loading your learning history…
-          </div>
-        ) : history.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
-            <BookOpen className="mx-auto h-8 w-8 text-slate-400" />
-            <h3 className="mt-3 text-base font-semibold text-slate-900">
-              Your account history starts here
-            </h3>
-            <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
-              Create a concept or open a sample, then your activity and quiz
-              results will appear here.
-            </p>
-            <Link
-              to="/create-concept"
-              className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
-            >
-              Create your first concept <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            {history.slice(0, 8).map((item) => (
-              <article
-                key={item.id}
-                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/75 transition-colors"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="break-words font-semibold text-slate-900">
-                      {item.title}
-                    </h3>
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">
-                      {item.type}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    {formatAccessTime(item.updatedAt || item.createdAt)}
-                    {item.explanationLevel
-                      ? ` · ${item.explanationLevel} level`
-                      : ""}
-                  </p>
-                  {item.quizTotal > 0 && (
-                    <p className="text-xs font-medium text-emerald-700">
-                      Quiz: {item.quizScore}/{item.quizTotal} (
-                      {item.quizPercentage}%)
-                    </p>
-                  )}
-                </div>
-                <Link
-                  to={`/visualize/${encodeURIComponent(item.conceptId)}`}
-                  state={{ concept: item.concept }}
-                  className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:self-auto"
-                >
-                  Open concept <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </article>
-            ))}
-          </div>
         )}
-      </section>
 
-      {/* Latest Quiz Results */}
-      {!historyLoading && !historyError && latestQuizResults.length > 0 && (
-        <section aria-labelledby="quiz-heading" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-            <h2 id="quiz-heading" className="text-lg font-bold text-slate-900">
-              Latest Quiz Results
-            </h2>
+        {/* ========================================================= */}
+        {/* 2. TOP 4 METRICS CARDS                                    */}
+        {/* ========================================================= */}
+        <section aria-label="Key learning statistics">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Card 1: Total XP */}
+            <StatCard
+              icon={Zap}
+              label="Experience Points"
+              value={`${totalXP.toLocaleString()} XP`}
+              badgeText={todayXP > 0 ? `+${todayXP} today` : "Live stats"}
+              badgeColor="indigo"
+              iconBgColor="bg-indigo-500/10"
+              iconColor="text-indigo-600"
+              subtext={todayXP > 0 ? "XP awarded for completed learning" : "Earn points by exploring & quizzes"}
+              gradient="from-indigo-50/40 via-white to-white"
+              borderColor="border-indigo-100"
+            />
+
+            {/* Card 2: Current Streak */}
+            <StatCard
+              icon={Flame}
+              label="Learning Streak"
+              value={`${currentStreak} ${currentStreak === 1 ? "Day" : "Days"}`}
+              badgeText={longestStreak > currentStreak ? `Best: ${longestStreak}d` : "Active"}
+              badgeColor="orange"
+              iconBgColor="bg-orange-500/10"
+              iconColor="text-orange-600"
+              subtext={currentStreak > 0 ? "Keep your momentum alive today" : "Study a concept to begin a streak"}
+              gradient="from-orange-50/30 via-white to-white"
+              borderColor="border-orange-100"
+            />
+
+            {/* Card 3: Concepts Learned */}
+            <StatCard
+              icon={GraduationCap}
+              label="Concepts Learned"
+              value={conceptsCompleted.toString()}
+              badgeText={`${history.length} explored`}
+              badgeColor="emerald"
+              iconBgColor="bg-emerald-500/10"
+              iconColor="text-emerald-600"
+              subtext={conceptsCompleted > 0 ? "Structured cognitive maps mastered" : "Start your first interactive concept"}
+              gradient="from-emerald-50/30 via-white to-white"
+              borderColor="border-emerald-100"
+            />
+
+            {/* Card 4: Achievements */}
+            <StatCard
+              icon={Award}
+              label="Achievements"
+              value={`${achievementsCount} / ${ALL_ACHIEVEMENTS.length}`}
+              badgeText={achievementsCount > 0 ? "Unlocked" : "Ready"}
+              badgeColor="purple"
+              iconBgColor="bg-purple-500/10"
+              iconColor="text-purple-600"
+              subtext={
+                achievementsCount > 0
+                  ? `${achievementsCount} badges proudly displayed`
+                  : "Complete milestones to earn badges"
+              }
+              gradient="from-purple-50/30 via-white to-white"
+              borderColor="border-purple-100"
+            />
           </div>
-          <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            {latestQuizResults.map((item) => (
-              <li
-                key={item.id}
-                className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/75 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="break-words font-medium text-slate-900">
-                    {item.title}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {formatAccessTime(item.updatedAt || item.createdAt)}
+        </section>
+
+        {/* ========================================================= */}
+        {/* 3. FEATURED CONTINUE LEARNING CARD                        */}
+        {/* ========================================================= */}
+        <section aria-label="Featured concept">
+          <FeaturedConceptCard
+            item={mostRecentItem}
+            fallbackConcept={sampleConcepts[0]}
+          />
+        </section>
+
+        {/* ========================================================= */}
+        {/* 4. CONCEPT VISUALIZATION PREVIEW                          */}
+        {/* ========================================================= */}
+        <section aria-label="AI Concept Map Preview">
+          <ConceptMapPreview
+            concept={mostRecentItem || sampleConcepts[0]}
+          />
+        </section>
+
+        {/* ========================================================= */}
+        {/* 5. LEARNING JOURNEY ROADMAP                               */}
+        {/* ========================================================= */}
+        <section aria-label="Learning Journey Roadmap">
+          <LearningJourney progress={progress} />
+        </section>
+
+        {/* ========================================================= */}
+        {/* 6. GOAL & LEADERBOARD GRID                                */}
+        {/* ========================================================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Daily Goal Circular Indicator */}
+          <ProgressRing
+            current={dailyGoalCurrent}
+            target={DAILY_GOAL_TARGET}
+            label="Daily Learning Target"
+            unit="Activities"
+          />
+
+          {/* Top Learners Leaderboard Preview */}
+          <LeaderboardPreviewCard />
+        </div>
+
+        {/* ========================================================= */}
+        {/* 7. RECENT ACTIVITY TIMELINE & QUIZ RESULTS                */}
+        {/* ========================================================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left (2 cols): Recently Explored Concepts */}
+          <section className="lg:col-span-2 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-card-soft space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200/70 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200/60 shadow-sm">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 font-display">
+                    Recent Learning Activity
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Your personal exploration history
                   </p>
                 </div>
-                <p className="text-sm font-semibold text-emerald-700">
-                  {item.quizScore}/{item.quizTotal} ({item.quizPercentage}%)
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Achievements Section */}
-      {!progressLoading &&
-        !progressError &&
-        (() => {
-          const rawAchievements = progress?.achievements;
-          if (!Array.isArray(rawAchievements) || rawAchievements.length === 0)
-            return null;
-          return (
-            <section
-              aria-labelledby="achievements-heading"
-              className="space-y-3"
-            >
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-                <Award className="h-5 w-5 text-violet-600" />
-                <h2
-                  id="achievements-heading"
-                  className="text-lg font-bold text-slate-900"
-                >
-                  Achievements
-                </h2>
-                <span className="ml-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                  {rawAchievements.length}
-                </span>
               </div>
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {rawAchievements.map((ach) => {
-                  const meta =
-                    ACHIEVEMENT_META[ach.achievementId] ?? ACHIEVEMENT_FALLBACK;
-                  const unlockedDate = ach.unlockedAt
-                    ? new Date(ach.unlockedAt).toLocaleDateString(undefined, {
-                        dateStyle: "medium",
-                      })
-                    : null;
-                  return (
-                    <li
-                      key={ach.achievementId}
-                      className={`flex items-start gap-3 rounded-xl border p-4 shadow-sm ${meta.color}`}
-                      aria-label={meta.label}
-                    >
-                      <span
-                        className="text-2xl leading-none select-none"
-                        aria-hidden="true"
-                      >
-                        {meta.emoji}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-tight">
-                          {meta.label}
-                        </p>
-                        <p className="mt-0.5 text-xs opacity-80">
-                          {meta.description}
-                        </p>
-                        {unlockedDate && (
-                          <p className="mt-1 text-[11px] opacity-60">
-                            Unlocked {unlockedDate}
-                          </p>
+
+              <Link
+                to="/history"
+                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                <span>Full History</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            {historyLoading && !history.length ? (
+              <div className="py-12 text-center text-sm text-slate-400">
+                Loading recent activity…
+              </div>
+            ) : history.length === 0 ? (
+              <div className="py-10 text-center space-y-2">
+                <BookOpen className="mx-auto h-8 w-8 text-slate-300" />
+                <p className="text-sm font-semibold text-slate-700">No activity recorded yet</p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Explore concepts from the Learn tab or sample library to populate your interactive timeline.
+                </p>
+                <Link
+                  to="/create-concept"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" /> Start learning now
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {history.slice(0, 5).map((item) => (
+                  <article
+                    key={item.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 hover:bg-slate-50/80 px-2 rounded-xl transition-colors"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900 truncate">
+                          {item.title}
+                        </h4>
+                        <span className="rounded-md bg-indigo-50 border border-indigo-100/80 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 uppercase">
+                          {item.type}
+                        </span>
+                        {item.quizTotal > 0 && (
+                          <span className="rounded-md bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            Quiz: {item.quizScore}/{item.quizTotal}
+                          </span>
                         )}
                       </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          );
-        })()}
-    </div>
+                      <p className="text-xs text-slate-500 line-clamp-1">
+                        {item.summary}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {formatAccessTime(item.updatedAt || item.createdAt)}
+                      </span>
+                      <Link
+                        to={`/visualize/${encodeURIComponent(item.conceptId)}`}
+                        state={{ concept: item.concept }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                      >
+                        <span>Open</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Right (1 col): Recent Quiz Performance Card */}
+          <section className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-card-soft space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200/70 pb-3.5">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900 font-display">
+                  Quiz Insights
+                </h3>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+                {quizAccuracy}% Avg
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-600 p-2 rounded-xl bg-slate-50">
+                <span>Quizzes Completed</span>
+                <span className="font-bold text-slate-900">{quizzesCompleted}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-600 p-2 rounded-xl bg-slate-50">
+                <span>Total XP Earned</span>
+                <span className="font-bold text-indigo-600">+{totalXP} XP</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Recent Scores
+              </h4>
+              {history.filter((i) => i.quizTotal > 0).slice(0, 3).length === 0 ? (
+                <p className="text-xs text-slate-400 py-3 text-center">
+                  Take a quiz on any concept to test your knowledge!
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {history
+                    .filter((i) => i.quizTotal > 0)
+                    .slice(0, 3)
+                    .map((q) => (
+                      <div
+                        key={q.id}
+                        className="flex items-center justify-between text-xs border border-slate-100 rounded-xl p-2.5 hover:bg-slate-50 transition-colors"
+                      >
+                        <span className="truncate font-medium text-slate-800 max-w-[140px]">
+                          {q.title}
+                        </span>
+                        <span className="font-bold text-emerald-700">
+                          {q.quizScore}/{q.quizTotal} ({q.quizPercentage}%)
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        {/* ========================================================= */}
+        {/* 8. ACHIEVEMENTS SECTION                                   */}
+        {/* ========================================================= */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-purple-600" />
+              <h2 className="text-lg font-bold text-slate-900 font-display">
+                Achievement Showcase
+              </h2>
+              <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">
+                {achievementsCount} of {ALL_ACHIEVEMENTS.length} Unlocked
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {ALL_ACHIEVEMENTS.map((ach) => {
+              const userUnlocked = rawAchievements.find(
+                (ua) => ua.achievementId === ach.id,
+              );
+              return (
+                <AchievementBadge
+                  key={ach.id}
+                  achievement={ach}
+                  isUnlocked={Boolean(userUnlocked)}
+                  unlockedAt={userUnlocked?.unlockedAt}
+                />
+              );
+            })}
+          </div>
+        </section>
+      </div>
   );
 };
 
