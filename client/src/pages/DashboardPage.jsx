@@ -27,6 +27,63 @@ const formatAccessTime = (value) => {
       });
 };
 
+/**
+ * Achievement display metadata.
+ * Keyed by achievementId as stored in the database.
+ * Any unknown ID falls back to ACHIEVEMENT_FALLBACK below.
+ */
+const ACHIEVEMENT_META = {
+  first_concept: {
+    emoji: "🧠",
+    label: "First Concept",
+    description: "Explored your first concept.",
+    color: "bg-indigo-50 border-indigo-200 text-indigo-800",
+  },
+  first_quiz: {
+    emoji: "📝",
+    label: "First Quiz",
+    description: "Completed your first quiz.",
+    color: "bg-violet-50 border-violet-200 text-violet-800",
+  },
+  quiz_master: {
+    emoji: "🏅",
+    label: "Quiz Master",
+    description: "Completed 5 quizzes.",
+    color: "bg-amber-50 border-amber-200 text-amber-800",
+  },
+  streak_3: {
+    emoji: "🔥",
+    label: "3-Day Streak",
+    description: "Kept a 3-day learning streak.",
+    color: "bg-orange-50 border-orange-200 text-orange-800",
+  },
+  streak_7: {
+    emoji: "⚡",
+    label: "7-Day Streak",
+    description: "Maintained a 7-day learning streak.",
+    color: "bg-rose-50 border-rose-200 text-rose-800",
+  },
+  xp_100: {
+    emoji: "🌟",
+    label: "Rising Star",
+    description: "Earned 100 XP.",
+    color: "bg-emerald-50 border-emerald-200 text-emerald-800",
+  },
+  xp_500: {
+    emoji: "🏆",
+    label: "XP Champion",
+    description: "Earned 500 XP.",
+    color: "bg-yellow-50 border-yellow-200 text-yellow-800",
+  },
+};
+
+const ACHIEVEMENT_FALLBACK = {
+  emoji: "🎖️",
+  label: "Achievement Unlocked",
+  description: "Keep learning to discover more.",
+  color: "bg-slate-50 border-slate-200 text-slate-700",
+};
+
 const DashboardPage = () => {
   const {
     history,
@@ -69,7 +126,10 @@ const DashboardPage = () => {
   const dailyGoalCurrent =
     progress?.dailyGoal?.current ??
     progress?.dailyGoalCurrent ??
-    Math.min(DAILY_GOAL_TARGET, Math.max(activitiesToday, Math.floor(todayXP / 10)));
+    Math.min(
+      DAILY_GOAL_TARGET,
+      Math.max(activitiesToday, Math.floor(todayXP / 10)),
+    );
 
   const quizAttempts = history.filter((item) => item.quizTotal > 0);
   const latestQuizResults = quizAttempts.slice(0, 5);
@@ -166,7 +226,11 @@ const DashboardPage = () => {
                 badgeColor="emerald"
                 iconBgColor="bg-amber-50"
                 iconColor="text-amber-600"
-                subtext={todayXP > 0 ? "Points earned today" : "Complete activities to earn XP"}
+                subtext={
+                  todayXP > 0
+                    ? "Points earned today"
+                    : "Complete activities to earn XP"
+                }
               />
 
               {/* 3. Today's Goal Progress Bar */}
@@ -229,7 +293,10 @@ const DashboardPage = () => {
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-indigo-600" />
-            <h2 id="history-heading" className="text-lg font-bold text-slate-900">
+            <h2
+              id="history-heading"
+              className="text-lg font-bold text-slate-900"
+            >
               Recently Explored
             </h2>
           </div>
@@ -348,6 +415,72 @@ const DashboardPage = () => {
           </ul>
         </section>
       )}
+
+      {/* Achievements Section */}
+      {!progressLoading &&
+        !progressError &&
+        (() => {
+          const rawAchievements = progress?.achievements;
+          if (!Array.isArray(rawAchievements) || rawAchievements.length === 0)
+            return null;
+          return (
+            <section
+              aria-labelledby="achievements-heading"
+              className="space-y-3"
+            >
+              <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+                <Award className="h-5 w-5 text-violet-600" />
+                <h2
+                  id="achievements-heading"
+                  className="text-lg font-bold text-slate-900"
+                >
+                  Achievements
+                </h2>
+                <span className="ml-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                  {rawAchievements.length}
+                </span>
+              </div>
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {rawAchievements.map((ach) => {
+                  const meta =
+                    ACHIEVEMENT_META[ach.achievementId] ?? ACHIEVEMENT_FALLBACK;
+                  const unlockedDate = ach.unlockedAt
+                    ? new Date(ach.unlockedAt).toLocaleDateString(undefined, {
+                        dateStyle: "medium",
+                      })
+                    : null;
+                  return (
+                    <li
+                      key={ach.achievementId}
+                      className={`flex items-start gap-3 rounded-xl border p-4 shadow-sm ${meta.color}`}
+                      aria-label={meta.label}
+                    >
+                      <span
+                        className="text-2xl leading-none select-none"
+                        aria-hidden="true"
+                      >
+                        {meta.emoji}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold leading-tight">
+                          {meta.label}
+                        </p>
+                        <p className="mt-0.5 text-xs opacity-80">
+                          {meta.description}
+                        </p>
+                        {unlockedDate && (
+                          <p className="mt-1 text-[11px] opacity-60">
+                            Unlocked {unlockedDate}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })()}
     </div>
   );
 };

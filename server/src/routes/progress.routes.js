@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { progressRateLimit } from "../middleware/progressRateLimit.js";
 import { createProgressControllers } from "../controllers/progress.controller.js";
 
 export const createProgressRouter = ({
   authMiddleware = requireAuth,
+  rateLimitMiddleware = progressRateLimit,
   progressService,
   achievementsService,
 } = {}) => {
@@ -13,8 +15,13 @@ export const createProgressRouter = ({
     achievements: achievementsService,
   });
 
-  router.get("/", authMiddleware, controllers.getProgress);
-  router.get("/progress", authMiddleware, controllers.getProgress);
+  router.get("/", authMiddleware, rateLimitMiddleware, controllers.getProgress);
+  router.get(
+    "/progress",
+    authMiddleware,
+    rateLimitMiddleware,
+    controllers.getProgress,
+  );
 
   return router;
 };

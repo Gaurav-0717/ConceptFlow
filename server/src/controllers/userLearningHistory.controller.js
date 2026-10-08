@@ -28,19 +28,24 @@ export const createUserLearningHistoryControllers = ({
         .json({ success: false, message: "Learning activity is invalid." });
     }
     try {
-      const activity = await service.createActivity(req.user.id, parsed.data);
-      if (activity?.completed && activity?.conceptId) {
-        if (activity.quizScore === undefined) {
-          await xpService
-            .awardConceptCompleted(req.user.id, activity.conceptId)
-            .catch(() => {});
-        }
-      }
-      if (activity?.explanationLevel && activity?.conceptId) {
-        await xpService
-          .awardExplanationCompleted(req.user.id, activity.conceptId)
-          .catch(() => {});
-      }
+      // Security: Client cannot self-report completion, quiz scores, or arbitrary XP.
+      // Visiting/studying a concept creates an exploratory activity (completed: false).
+      // Completed concepts and quiz scores must come through verified server actions.
+      const {
+        quizScore: _ignoredQuizScore,
+        quizTotal: _ignoredQuizTotal,
+        quizPercentage: _ignoredQuizPercentage,
+        completed: _ignoredCompleted,
+        xp: _ignoredXP,
+        score: _ignoredScore,
+        ...activityData
+      } = parsed.data;
+
+      const activity = await service.createActivity(req.user.id, {
+        ...activityData,
+        completed: false,
+      });
+
       return res.status(201).json({ success: true, activity });
     } catch (error) {
       return respondWithHistoryError(res, error);

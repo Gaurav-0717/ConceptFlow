@@ -6,10 +6,7 @@ import mongoose from "mongoose";
 import { test } from "node:test";
 import { createAuthMiddleware } from "../src/middleware/auth.js";
 import { createProgressRouter } from "../src/routes/progress.routes.js";
-import {
-  createXPService,
-  XP_AMOUNTS,
-} from "../src/services/xpService.js";
+import { createXPService, XP_AMOUNTS } from "../src/services/xpService.js";
 import { FIXTURE_FLOWCHART } from "../src/fixtures/concept.fixtures.js";
 
 const { ObjectId } = mongoose.Types;
@@ -85,7 +82,17 @@ const createMockXPStorage = () => {
         }
         if (stage.$group) {
           const total = filtered.reduce((sum, d) => sum + (d.amount || 0), 0);
-          return [{ _id: null, total }];
+          const todayStart = stage.$group.todayXP?.$sum?.$cond?.[0]?.$gte?.[1];
+          const todayXP = todayStart
+            ? filtered.reduce(
+                (sum, d) =>
+                  new Date(d.createdAt) >= todayStart
+                    ? sum + (d.amount || 0)
+                    : sum,
+                0,
+              )
+            : undefined;
+          return [{ _id: null, total, totalXP: total, todayXP }];
         }
       }
       return [];
@@ -171,6 +178,37 @@ test("duplicate prevention prevents awarding XP multiple times for the same acti
   assert.equal(storage.documents.length, 1);
 });
 
+test("verified XP activity updates streak and checks achievements once with current progress", async () => {
+  const storage = createMockXPStorage();
+  const userId = new ObjectId().toString();
+  const userRecord = {
+    currentStreak: 0,
+    longestStreak: 0,
+    lastActivityDate: null,
+    async save() {},
+  };
+  const userModel = { findById: () => userRecord };
+  const checks = [];
+  const service = createXPService({
+    getModel: async () => storage,
+    userModel,
+    historyModel: createMockHistoryModel([
+      { userId, conceptId: "concept-verified", completed: true },
+    ]),
+    achievementService: {
+      checkAchievements: async (id, progress) => checks.push({ id, progress }),
+    },
+  });
+
+  await service.awardConceptCompleted(userId, "concept-verified");
+
+  assert.equal(checks.length, 1);
+  assert.equal(checks[0].id, userId);
+  assert.equal(checks[0].progress.totalXP, 10);
+  assert.equal(checks[0].progress.conceptsCompleted, 1);
+  assert.equal(checks[0].progress.currentStreak, 1);
+});
+
 test("user isolation ensures rewards and progress are isolated between users", async () => {
   const storage = createMockXPStorage();
   const historyDocs = [];
@@ -254,6 +292,68 @@ test("progress calculation computes totalXP, todayXP, concepts, quizzes, and acc
   // (4 + 5) / (5 + 5) = 9/10 = 90%
   assert.equal(progress.quizAccuracy, 90);
   assert.equal(progress.currentStreak, 0);
+  // longestStreak should always be present in the return shape (0 when userModel is null)
+  assert.equal(progress.longestStreak, 0);
+});
+
+test("progress reuses an activity user document and performs one projected history/XP read", async () => {
+  const storage = createMockXPStorage();
+  const originalAggregate = storage.aggregate;
+  let aggregateCalls = 0;
+  storage.aggregate = async (...args) => {
+    aggregateCalls += 1;
+    return originalAggregate(...args);
+  };
+  const userId = new ObjectId().toString();
+  let userQueries = 0;
+  let historyQueries = 0;
+  let projectedFields = null;
+  const historyModel = {
+    find: () => {
+      historyQueries += 1;
+      const query = {
+        select(fields) {
+          projectedFields = fields;
+          return query;
+        },
+        lean: async () => [
+          {
+            conceptId: "concept-1",
+            completed: true,
+            quizScore: 4,
+            quizTotal: 5,
+          },
+        ],
+      };
+      return query;
+    },
+  };
+  const service = createXPService({
+    getModel: async () => storage,
+    historyModel,
+    userModel: {
+      findById: () => {
+        userQueries += 1;
+        return { lean: async () => ({ currentStreak: 0, longestStreak: 0 }) };
+      },
+    },
+  });
+
+  const progress = await service.getProgress(userId, {
+    userDoc: { currentStreak: 3, longestStreak: 4 },
+  });
+  assert.equal(aggregateCalls, 1);
+  assert.equal(historyQueries, 1);
+  assert.equal(userQueries, 0);
+  assert.equal(
+    projectedFields,
+    "conceptId completed quizScore quizTotal isVerified migrationKey",
+  );
+  assert.equal(progress.currentStreak, 3);
+  assert.equal(progress.longestStreak, 4);
+  assert.equal(progress.conceptsCompleted, 1);
+  assert.equal(progress.quizzesCompleted, 1);
+  assert.equal(progress.quizAccuracy, 80);
 });
 
 test("quiz XP awards +20 for completion and +10 bonus for >= 80% score", async () => {
@@ -317,8 +417,12 @@ test("GET /api/progress requires authentication and returns student progress", a
     }
   };
 
+  let achievementChecks = 0;
   const mockAchievementsService = {
-    checkAchievements: async () => [],
+    checkAchievements: async () => {
+      achievementChecks += 1;
+      return [];
+    },
     getUserAchievements: async () => [],
   };
 
@@ -352,6 +456,13 @@ test("GET /api/progress requires authentication and returns student progress", a
     assert.equal(data.totalXP, 10);
     assert.equal(data.todayXP, 10);
     assert.equal(data.currentStreak, 0);
+    // longestStreak must be present in the top-level response (0 when no user model)
+    assert.equal(data.longestStreak, 0);
+    assert.equal(
+      achievementChecks,
+      0,
+      "GET progress must not unlock achievements",
+    );
   } finally {
     server.close();
     await once(server, "close");

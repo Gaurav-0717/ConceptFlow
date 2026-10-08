@@ -1,5 +1,10 @@
 import { Router } from "express";
 import { aiRateLimit } from "../middleware/aiRateLimit.js";
+import { migrationRateLimit } from "../middleware/migrationRateLimit.js";
+import {
+  quizCreationRateLimit,
+  quizSubmissionRateLimit,
+} from "../middleware/quizRateLimit.js";
 import { createLearningControllers } from "../controllers/learning.controller.js";
 import { optionalAuth } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -11,6 +16,9 @@ export const createLearningRouter = (dependencies = {}) => {
     historyService,
     authMiddleware = requireAuth,
     optionalAuthMiddleware = optionalAuth,
+    migrationRateLimitMiddleware = migrationRateLimit,
+    quizCreationRateLimitMiddleware = quizCreationRateLimit,
+    quizSubmissionRateLimitMiddleware = quizSubmissionRateLimit,
     ...learningDependencies
   } = dependencies;
   const controllers = createLearningControllers(learningDependencies);
@@ -26,17 +34,23 @@ export const createLearningRouter = (dependencies = {}) => {
   );
   router.post(
     "/quiz",
-    aiRateLimit,
+    quizCreationRateLimitMiddleware,
     optionalAuthMiddleware,
     controllers.createQuiz,
   );
+  router.get("/quiz/:quizId", optionalAuthMiddleware, controllers.getQuiz);
   router.post(
     "/quiz/:quizId/submit",
-    aiRateLimit,
+    quizSubmissionRateLimitMiddleware,
     optionalAuthMiddleware,
     controllers.submitQuiz,
   );
-  router.post("/history/migrate", authMiddleware, history.migrate);
+  router.post(
+    "/history/migrate",
+    authMiddleware,
+    migrationRateLimitMiddleware,
+    history.migrate,
+  );
   router.post("/history", authMiddleware, history.create);
   router.get("/history", authMiddleware, history.list);
   router.get("/history/:id", authMiddleware, history.get);

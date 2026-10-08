@@ -89,20 +89,6 @@ const LandingPage = () => {
               <span>Dashboard</span>
             </Link>
           </div>
-
-          {/* Phase 2 Notice Box */}
-          <div className="mt-8 max-w-xl mx-auto p-4 rounded-xl bg-slate-100 border border-slate-200 text-left text-xs sm:text-sm text-slate-600">
-            <div className="font-semibold text-slate-900 flex items-center gap-2 mb-1">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Reliable Visualization Generation
-            </div>
-            <p>
-              Five visualization types are supported. Concepts are validated,
-              generated with Gemini, loaded from the MongoDB cache when
-              available, or served by deterministic fallbacks when external
-              services are unavailable.
-            </p>
-          </div>
         </div>
       </section>
 

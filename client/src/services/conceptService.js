@@ -123,6 +123,24 @@ export const createConceptQuiz = async (concept, explanationLevel) => {
   }
 };
 
+export const getConceptQuiz = async (quizId) => {
+  try {
+    const response = await api.get(
+      `/learning/quiz/${encodeURIComponent(quizId)}`,
+    );
+    return response.data;
+  } catch (error) {
+    return {
+      ...(error.response?.data || {}),
+      success: false,
+      status: error.response?.status,
+      message:
+        error.response?.data?.message ||
+        "The active quiz could not be reached. Please try again.",
+    };
+  }
+};
+
 export const submitConceptQuiz = async (quizId, answers) => {
   try {
     const response = await api.post(
@@ -132,8 +150,12 @@ export const submitConceptQuiz = async (quizId, answers) => {
     return response.data;
   } catch (error) {
     return (
-      error.response?.data || {
+      (error.response?.data && {
+        ...error.response.data,
+        status: error.response.status,
+      }) || {
         success: false,
+        status: error.response?.status,
         message:
           "Your quiz could not be submitted. Your answers are still here; try again.",
       }

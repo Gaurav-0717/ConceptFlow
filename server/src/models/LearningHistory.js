@@ -81,6 +81,10 @@ const learningHistorySchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isVerified: {
+      type: Boolean,
+      index: true,
+    },
     migrationKey: {
       type: String,
       trim: true,
@@ -106,6 +110,13 @@ learningHistorySchema.index(
     partialFilterExpression: { migrationKey: { $type: "string" } },
   },
 );
+
+learningHistorySchema.pre("validate", function (next) {
+  if (this.isNew && this.isVerified === undefined) {
+    this.isVerified = false;
+  }
+  next();
+});
 
 export const LearningHistory =
   mongoose.models.LearningHistory ||

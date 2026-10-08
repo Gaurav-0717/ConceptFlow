@@ -230,6 +230,12 @@ const VisualizationPage = () => {
     saveQuizResult({ conceptId: currentConcept.id, ...result });
   };
 
+  const handleQuizConceptRestore = (restoredConcept) => {
+    if (restoredConcept?.id && (!id || restoredConcept.id === id)) {
+      setCurrentConcept(restoredConcept);
+    }
+  };
+
   // Test edge cases handlers
   const handleTestUnknownType = () => {
     setCurrentConcept({
@@ -426,6 +432,8 @@ const VisualizationPage = () => {
         learningLevel={learningLevel}
         onLearningLevelChange={selectLearningLevel}
         onQuizResult={handleQuizResult}
+        onQuizConceptRestore={handleQuizConceptRestore}
+        resumeScopeId={id || currentConcept?.id}
       />
 
       <details

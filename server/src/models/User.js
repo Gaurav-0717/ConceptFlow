@@ -26,7 +26,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       maxlength: [254, "Email cannot exceed 254 characters."],
-      unique: true,
     },
     passwordHash: {
       type: String,

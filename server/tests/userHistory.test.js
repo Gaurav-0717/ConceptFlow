@@ -12,11 +12,12 @@ import { createUserLearningHistoryService } from "../src/services/userLearningHi
 import { createQuizService } from "../src/services/quizService.js";
 import { learningActivityRequestSchema } from "../src/validation/learningHistory.schema.js";
 import { FIXTURE_FLOWCHART } from "../src/fixtures/concept.fixtures.js";
+import { createQuizSessionTestStore } from "./quizSessionTestStore.js";
 
 const makeCollection = () => {
   const documents = [];
   const matches = (document, filter) =>
-    (!filter.userId || document.userId === filter.userId) &&
+    (!filter.userId || String(document.userId) === String(filter.userId)) &&
     (!filter.migrationKey || document.migrationKey === filter.migrationKey) &&
     (!filter._id || document._id.equals(filter._id));
   return {
@@ -37,6 +38,7 @@ const makeCollection = () => {
           selected = selected.slice(0, count);
           return cursor;
         },
+        lean: async () => selected,
         toArray: async () => selected,
       };
       return cursor;
@@ -254,6 +256,7 @@ test("authenticated quiz completion persists score without exposing answers befo
   });
   const userA = new ObjectId().toString();
   const userB = new ObjectId().toString();
+  const quizSessionStore = createQuizSessionTestStore();
   const quiz = {
     questions: Array.from({ length: 5 }, (_, index) => ({
       id: `q${index + 1}`,
@@ -264,6 +267,7 @@ test("authenticated quiz completion persists score without exposing answers befo
     })),
   };
   const quizzes = createQuizService({
+    getCollection: async () => quizSessionStore.collection,
     contentService: {
       generateQuiz: async () => ({ source: "fallback", quiz }),
     },
@@ -281,7 +285,9 @@ test("authenticated quiz completion persists score without exposing answers befo
     },
   });
 
-  const created = await quizzes.createQuiz(FIXTURE_FLOWCHART, { userId: userA });
+  const created = await quizzes.createQuiz(FIXTURE_FLOWCHART, {
+    userId: userA,
+  });
   assert.equal(
     created.quiz.questions.every(
       (question) =>
@@ -305,4 +311,8 @@ test("authenticated quiz completion persists score without exposing answers befo
   assert.equal(submitted.percentage, 100);
   assert.equal((await historyService.listActivities(userA)).length, 1);
   assert.equal((await historyService.listActivities(userB)).length, 0);
+  await assert.rejects(
+    quizzes.submitQuiz(created.quizId, answers, { userId: userA }),
+    (error) => error.statusCode === 404,
+  );
 });

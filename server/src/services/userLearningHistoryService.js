@@ -36,7 +36,8 @@ const toPublicActivity = (document) => ({
         quizPercentage: document.quizPercentage,
       }
     : {}),
-  completed: document.completed,
+  completed: Boolean(document.completed),
+  isVerified: Boolean(document.isVerified),
   createdAt: document.createdAt,
   updatedAt: document.updatedAt,
 });
@@ -80,7 +81,11 @@ export const createUserLearningHistoryService = ({
     }
   };
 
-  const makeDocument = (userId, activity, { migrationKey, createdAt } = {}) => {
+  const makeDocument = (
+    userId,
+    activity,
+    { migrationKey, createdAt, isVerified = false } = {},
+  ) => {
     const parsed = learningActivityRequestSchema.safeParse(activity);
     if (!parsed.success)
       throw new UserHistoryError("Learning activity is invalid.", 400);
@@ -109,16 +114,17 @@ export const createUserLearningHistoryService = ({
             quizPercentage: parsed.data.quizPercentage,
           }
         : {}),
-      completed: parsed.data.completed ?? parsed.data.quizScore !== undefined,
+      completed: isVerified ? Boolean(parsed.data.completed) : false,
+      isVerified: Boolean(isVerified),
       ...(migrationKey ? { migrationKey } : {}),
       createdAt: createdAt || timestamp,
       updatedAt: timestamp,
     };
   };
 
-  const createActivity = async (userId, activity) => {
+  const createActivity = async (userId, activity, options = {}) => {
     const storage = await getActiveStorage(userId);
-    const document = makeDocument(userId, activity);
+    const document = makeDocument(userId, activity, options);
 
     if (typeof storage.create === "function" && typeof storage.insertOne !== "function") {
       const created = await storage.create(document);
@@ -146,15 +152,19 @@ export const createUserLearningHistoryService = ({
     total,
     percentage,
   }) =>
-    createActivity(userId, {
-      concept,
-      explanationLevel,
-      source,
-      completed: true,
-      quizScore: score,
-      quizTotal: total,
-      quizPercentage: percentage,
-    });
+    createActivity(
+      userId,
+      {
+        concept,
+        explanationLevel,
+        source,
+        completed: true,
+        quizScore: score,
+        quizTotal: total,
+        quizPercentage: percentage,
+      },
+      { isVerified: true },
+    );
 
     const listActivities = async (userId) => {
       if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -200,14 +210,39 @@ export const createUserLearningHistoryService = ({
     return (result?.deletedCount ?? 0) === 1;
   };
 
+  const MAX_BATCH_MIGRATION_LIMIT = 50;
+  const MAX_ACCOUNT_MIGRATION_LIMIT = 100;
+
   const migrateActivities = async (userId, rawItems) => {
-    if (!Array.isArray(rawItems) || rawItems.length > 50) {
+    if (!Array.isArray(rawItems) || rawItems.length > MAX_BATCH_MIGRATION_LIMIT) {
       throw new UserHistoryError(
-        "History migration can include at most 50 entries.",
+        `History migration can include at most ${MAX_BATCH_MIGRATION_LIMIT} entries.`,
         400,
       );
     }
     const storage = await getActiveStorage(userId);
+
+    let existingMigratedCount = 0;
+    if (typeof storage.countDocuments === "function") {
+      existingMigratedCount = await storage.countDocuments({
+        userId,
+        migrationKey: { $exists: true },
+      });
+    } else if (typeof storage.find === "function") {
+      const cursor = storage.find({ userId });
+      const docs =
+        cursor && typeof cursor.toArray === "function"
+          ? await cursor.toArray()
+          : cursor && typeof cursor.lean === "function"
+            ? await cursor.lean()
+            : await cursor;
+      existingMigratedCount = (docs || []).filter((d) => d.migrationKey).length;
+    }
+
+    let remainingQuota = Math.max(
+      0,
+      MAX_ACCOUNT_MIGRATION_LIMIT - existingMigratedCount,
+    );
     let migrated = 0;
     let skipped = 0;
 
@@ -218,6 +253,26 @@ export const createUserLearningHistoryService = ({
         continue;
       }
       const item = parsed.data;
+
+      let alreadyExists = false;
+      if (typeof storage.findOne === "function") {
+        const query = storage.findOne({ userId, migrationKey: item.migrationKey });
+        const existing =
+          query && typeof query.lean === "function"
+            ? await query.lean()
+            : await query;
+        alreadyExists = Boolean(existing);
+      }
+
+      if (!alreadyExists) {
+        if (remainingQuota <= 0) {
+          throw new UserHistoryError(
+            `Account migration limit reached. At most ${MAX_ACCOUNT_MIGRATION_LIMIT} entries can be migrated per account.`,
+            400,
+          );
+        }
+      }
+
       const quiz = item.latestQuizScore;
       const document = makeDocument(
         userId,
@@ -225,7 +280,7 @@ export const createUserLearningHistoryService = ({
           concept: item.concept,
           explanationLevel: item.explanationLevel,
           source: item.source,
-          completed: Boolean(quiz),
+          completed: false, // Untrusted client history cannot establish completion
           ...(quiz
             ? {
                 quizScore: quiz.score,
@@ -237,6 +292,7 @@ export const createUserLearningHistoryService = ({
         {
           migrationKey: item.migrationKey,
           createdAt: item.createdAt ? new Date(item.createdAt) : undefined,
+          isVerified: false, // Explicit untrusted flag
         },
       );
 
@@ -245,7 +301,10 @@ export const createUserLearningHistoryService = ({
         { $setOnInsert: document },
         { upsert: true },
       );
-      if (result.upsertedCount === 1) migrated += 1;
+      if (result.upsertedCount === 1) {
+        migrated += 1;
+        remainingQuota -= 1;
+      }
     }
     return { migrated, skipped };
   };

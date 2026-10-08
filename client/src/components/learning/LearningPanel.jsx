@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
@@ -11,9 +11,17 @@ import {
 } from "lucide-react";
 import {
   createConceptQuiz,
+  getConceptQuiz,
   generateLearningExplanation,
   submitConceptQuiz,
 } from "../../services/conceptService";
+import { useAuth } from "../../context/AuthContext";
+import {
+  clearQuizResume,
+  restoreQuizResume,
+  saveQuizResume,
+  shouldClearResumeAfterSubmit,
+} from "../../services/quizSessionStorage";
 
 const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 const SOURCE_LABELS = {
@@ -107,7 +115,11 @@ const LearningPanel = ({
   learningLevel,
   onLearningLevelChange,
   onQuizResult,
+  onQuizConceptRestore,
+  resumeScopeId = concept.id,
 }) => {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const resumeUserId = isAuthenticated ? user?.id : null;
   const [explanation, setExplanation] = useState(null);
   const [explanationSource, setExplanationSource] = useState(null);
   const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
@@ -121,15 +133,132 @@ const LearningPanel = ({
   const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
   const [quizNotice, setQuizNotice] = useState("");
+  const [isRestoringQuiz, setIsRestoringQuiz] = useState(false);
+  const [resumeQuizId, setResumeQuizId] = useState(null);
+  const [resumeAttempt, setResumeAttempt] = useState(0);
+  const activeQuizOwnerRef = useRef(undefined);
+  const previousConceptIdRef = useRef(concept.id);
+  const previousResumeUserIdRef = useRef(resumeUserId);
+  const previousResumeScopeRef = useRef(resumeScopeId);
+  const restoredConceptIdRef = useRef(null);
+  const onQuizConceptRestoreRef = useRef(onQuizConceptRestore);
+  onQuizConceptRestoreRef.current = onQuizConceptRestore;
 
   useEffect(() => {
+    if (previousConceptIdRef.current === concept.id) return;
+    previousConceptIdRef.current = concept.id;
+    if (restoredConceptIdRef.current === concept.id) {
+      restoredConceptIdRef.current = null;
+      return;
+    }
     setExplanation(null);
     setExplanationSource(null);
     setExplanationNotice("");
     resetQuiz();
   }, [concept.id]);
 
+  useEffect(() => {
+    if (previousResumeScopeRef.current === resumeScopeId) return;
+    clearQuizResume(
+      activeQuizOwnerRef.current ?? previousResumeUserIdRef.current,
+      previousResumeScopeRef.current,
+    );
+    previousResumeScopeRef.current = resumeScopeId;
+    resetQuiz();
+    setResumeQuizId(null);
+  }, [resumeScopeId, resumeUserId]);
+
+  useEffect(() => {
+    if (previousResumeUserIdRef.current !== resumeUserId) {
+      previousResumeUserIdRef.current = resumeUserId;
+      resetQuiz();
+      setResumeQuizId(null);
+    }
+  }, [resumeUserId]);
+
+  useEffect(() => {
+    if (authLoading || (isAuthenticated && !resumeUserId)) return undefined;
+    let active = true;
+    setIsRestoringQuiz(true);
+    restoreQuizResume({
+      userId: resumeUserId,
+      scopeId: resumeScopeId,
+      expectedConceptId: resumeScopeId,
+      getQuiz: getConceptQuiz,
+    })
+      .then((restored) => {
+        if (!active) return;
+        if (restored.status === "restored") {
+          if (restored.concept.id !== concept.id) {
+            restoredConceptIdRef.current = restored.concept.id;
+            onQuizConceptRestoreRef.current?.(restored.concept);
+          }
+          activeQuizOwnerRef.current = resumeUserId;
+          setQuiz(restored.quiz);
+          setQuizId(restored.quizId);
+          setQuizSource(restored.source === "gemini" ? "gemini" : "fallback");
+          setSelectedAnswers(restored.selectedAnswers);
+          setActiveQuestion(restored.activeQuestionIndex);
+          setResumeQuizId(null);
+          setQuizNotice(
+            restored.source === "gemini"
+              ? ""
+              : "This practice quiz was prepared by ConceptFlow's offline learning engine.",
+          );
+          return;
+        }
+        if (restored.status === "missing") {
+          setResumeQuizId(null);
+          setQuizNotice("This quiz is no longer active. Start a new quiz.");
+          return;
+        }
+        if (restored.status === "unavailable") {
+          setResumeQuizId(restored.quizId);
+          setQuizNotice(
+            "Your active quiz could not be reached. Retry the connection or start a new quiz.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setIsRestoringQuiz(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    authLoading,
+    isAuthenticated,
+    resumeUserId,
+    resumeAttempt,
+    resumeScopeId,
+  ]);
+
+  useEffect(() => {
+    if (
+      authLoading ||
+      !quizId ||
+      quizResult ||
+      activeQuizOwnerRef.current !== resumeUserId
+    ) {
+      return;
+    }
+    saveQuizResume(
+      { quizId, selectedAnswers, activeQuestionIndex: activeQuestion },
+      resumeUserId,
+      resumeScopeId,
+    );
+  }, [
+    authLoading,
+    resumeUserId,
+    resumeScopeId,
+    quizId,
+    selectedAnswers,
+    activeQuestion,
+    quizResult,
+  ]);
+
   const resetQuiz = () => {
+    activeQuizOwnerRef.current = undefined;
     setQuiz(null);
     setQuizSource(null);
     setQuizId(null);
@@ -174,10 +303,13 @@ const LearningPanel = ({
 
   const startQuiz = async () => {
     setIsLoadingQuiz(true);
+    clearQuizResume(resumeUserId, resumeScopeId);
+    setResumeQuizId(null);
     resetQuiz();
     try {
       const result = await createConceptQuiz(concept);
       if (result.success && isPublicQuiz(result.quiz)) {
+        activeQuizOwnerRef.current = resumeUserId;
         setQuiz(result.quiz);
         setQuizId(result.quizId);
         setQuizSource(result.source === "gemini" ? "gemini" : "fallback");
@@ -213,12 +345,26 @@ const LearningPanel = ({
       let result;
       if (quizId) {
         const response = await submitConceptQuiz(quizId, selectedAnswers);
+        if (shouldClearResumeAfterSubmit(response)) {
+          clearQuizResume(resumeUserId, resumeScopeId);
+        }
         if (!response.success || !response.result) {
+          if (response.status === 404) {
+            activeQuizOwnerRef.current = undefined;
+            setQuiz(null);
+            setQuizId(null);
+            setSelectedAnswers({});
+            setActiveQuestion(0);
+            setResumeQuizId(null);
+            setQuizNotice("This quiz is no longer active. Start a new quiz.");
+            return;
+          }
           setQuizNotice(
             response.message || "Your quiz could not be submitted. Try again.",
           );
           return;
         }
+        setResumeQuizId(null);
         result = response.result;
       } else {
         const answers = quiz.questions.map((question) => ({
@@ -400,19 +546,38 @@ const LearningPanel = ({
             </p>
           </div>
           {!quiz && (
-            <button
-              type="button"
-              onClick={startQuiz}
-              disabled={isLoadingQuiz}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-            >
-              {isLoadingQuiz ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <CircleHelp className="h-4 w-4" />
+            <div className="flex flex-wrap gap-2">
+              {resumeQuizId && (
+                <button
+                  type="button"
+                  onClick={() => setResumeAttempt((attempt) => attempt + 1)}
+                  disabled={isRestoringQuiz || isLoadingQuiz}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {isRestoringQuiz && (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  )}
+                  {isRestoringQuiz ? "Reconnecting..." : "Retry restore"}
+                </button>
               )}
-              {isLoadingQuiz ? "Preparing quiz..." : "Start quiz"}
-            </button>
+              <button
+                type="button"
+                onClick={startQuiz}
+                disabled={isLoadingQuiz || isRestoringQuiz || authLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {isLoadingQuiz ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CircleHelp className="h-4 w-4" />
+                )}
+                {isLoadingQuiz
+                  ? "Preparing quiz..."
+                  : resumeQuizId
+                    ? "Start a new quiz"
+                    : "Start quiz"}
+              </button>
+            </div>
           )}
         </div>
         {quizNotice && (

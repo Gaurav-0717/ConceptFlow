@@ -41,17 +41,36 @@ export const AuthProvider = ({ children }) => {
     const owner = getMigrationOwner();
     if (owner && owner !== authenticatedUser.id) return;
 
+    // Filter to valid records with concept data
+    const validRecords = records.filter(
+      (item) => item && item.id && item.concept && typeof item.concept === "object",
+    );
+    if (!validRecords.length) {
+      clearLearningHistory();
+      clearMigrationOwner();
+      return;
+    }
+
     setMigrationOwner(authenticatedUser.id);
     try {
-      const items = records.map((item) => ({
-        migrationKey: `${item.id}:${item.lastAccessedAt}`,
+      const items = validRecords.slice(0, 50).map((item) => ({
+        migrationKey: `${item.id}:${item.lastAccessedAt || item.createdAt || new Date().toISOString()}`,
         concept: item.concept,
-        explanationLevel: item.level,
-        source: item.source,
-        createdAt: item.lastAccessedAt || item.createdAt,
-        lastAccessedAt: item.lastAccessedAt,
+        explanationLevel: item.level || "Intermediate",
+        source: item.source || "sample",
+        createdAt: item.lastAccessedAt || item.createdAt || new Date().toISOString(),
+        lastAccessedAt: item.lastAccessedAt || item.createdAt || new Date().toISOString(),
         ...(item.latestQuizScore
-          ? { latestQuizScore: item.latestQuizScore }
+          ? {
+              latestQuizScore: {
+                score: Number(item.latestQuizScore.score) || 0,
+                total: Number(item.latestQuizScore.total) || 1,
+                percentage: Number(item.latestQuizScore.percentage) || 0,
+                ...(item.latestQuizScore.completedAt
+                  ? { completedAt: item.latestQuizScore.completedAt }
+                  : {}),
+              },
+            }
           : {}),
       }));
       const result = await migrateLocalLearningHistory(items);

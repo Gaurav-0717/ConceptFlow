@@ -3,6 +3,7 @@ import {
   quizAnswersSchema,
   quizSchema,
 } from "../validation/learning.schema.js";
+import { QuizSession, getQuizSessionModel } from "../models/QuizSession.js";
 import { prepareConcept } from "./conceptService.js";
 import { learningContentService } from "./learningContentService.js";
 import { userLearningHistoryService } from "./userLearningHistoryService.js";
@@ -20,24 +21,76 @@ export class QuizSessionError extends Error {
 
 export const createQuizService = ({
   contentService = learningContentService,
+  model = QuizSession,
+  getModel = getQuizSessionModel,
+  getCollection,
   now = () => Date.now(),
   idFactory = randomUUID,
   onCompleted = async () => false,
 } = {}) => {
-  const sessions = new Map();
-
-  const pruneExpiredSessions = () => {
-    const currentTime = now();
-    for (const [id, session] of sessions) {
-      if (session.expiresAt <= currentTime) sessions.delete(id);
+  const getActiveStorage = async () => {
+    try {
+      const storage = getCollection
+        ? await getCollection()
+        : await getModel(model);
+      if (!storage) {
+        throw new QuizSessionError(
+          "Quiz session storage is temporarily unavailable.",
+          503,
+        );
+      }
+      return storage;
+    } catch (error) {
+      if (error instanceof QuizSessionError) throw error;
+      throw new QuizSessionError(
+        "Quiz session storage is temporarily unavailable.",
+        503,
+      );
     }
   };
 
+  const readQuery = async (query) =>
+    query && typeof query.lean === "function" ? query.lean() : query;
+
+  const readOne = async (storage, filter) => readQuery(storage.findOne(filter));
+
+  const consumeOne = async (storage, filter) => {
+    const result = await readQuery(storage.findOneAndDelete(filter));
+    return result && Object.hasOwn(result, "value") ? result.value : result;
+  };
+
+  const persistSession = async (storage, document) => {
+    if (typeof storage.create === "function") return storage.create(document);
+    if (typeof storage.insertOne === "function")
+      return storage.insertOne(document);
+    throw new Error("Quiz session storage does not support creation.");
+  };
+
+  const toPublicQuiz = (session) => ({
+    quizId: session.quizId,
+    source: session.source,
+    expiresAt: session.expiresAt,
+    concept: session.concept,
+    quiz: {
+      questions: session.quiz.questions.map(({ id, question, options }) => ({
+        id,
+        question,
+        options,
+      })),
+    },
+  });
+
+  const storageError = () =>
+    new QuizSessionError(
+      "Quiz session storage is temporarily unavailable.",
+      503,
+    );
+
   const createQuiz = async (rawConcept, { userId, explanationLevel } = {}) => {
-    pruneExpiredSessions();
     const conceptResult = prepareConcept(rawConcept);
     if (!conceptResult.valid)
       throw new QuizSessionError("A valid concept is required.", 400);
+    const storage = await getActiveStorage();
     const concept = conceptResult.concept;
     const result = await contentService.generateQuiz(concept);
     const parsed = quizSchema.safeParse(result.quiz);
@@ -45,15 +98,20 @@ export const createQuizService = ({
       throw new QuizSessionError("A valid quiz could not be created.", 503);
 
     const quizId = idFactory();
-    const expiresAt = now() + QUIZ_SESSION_TTL_MS;
-    sessions.set(quizId, {
+    const session = {
+      quizId,
       quiz: parsed.data,
-      expiresAt,
+      expiresAt: new Date(now() + QUIZ_SESSION_TTL_MS),
       ...(userId ? { userId } : {}),
       ...(explanationLevel ? { explanationLevel } : {}),
       source: result.source,
       concept,
-    });
+    };
+    try {
+      await persistSession(storage, session);
+    } catch {
+      throw storageError();
+    }
     return {
       quizId,
       source: result.source,
@@ -67,15 +125,44 @@ export const createQuizService = ({
     };
   };
 
+  const getQuiz = async (quizId, { userId } = {}) => {
+    const storage = await getActiveStorage();
+    let session;
+    try {
+      session = await readOne(storage, { quizId });
+    } catch {
+      throw storageError();
+    }
+    if (
+      !session ||
+      new Date(session.expiresAt).getTime() <= now() ||
+      (session.userId && String(session.userId) !== String(userId))
+    ) {
+      throw new QuizSessionError("This quiz session was not found.", 404);
+    }
+    return toPublicQuiz(session);
+  };
+
   const submitQuiz = async (quizId, rawAnswers, { userId } = {}) => {
-    pruneExpiredSessions();
-    const session = sessions.get(quizId);
+    const storage = await getActiveStorage();
+    let session;
+    try {
+      session = await readOne(storage, { quizId });
+    } catch {
+      throw storageError();
+    }
     if (!session)
       throw new QuizSessionError(
         "This quiz has expired. Start a new quiz to continue.",
         404,
       );
-    if (session.userId && session.userId !== userId) {
+    if (new Date(session.expiresAt).getTime() <= now()) {
+      throw new QuizSessionError(
+        "This quiz has expired. Start a new quiz to continue.",
+        404,
+      );
+    }
+    if (session.userId && String(session.userId) !== String(userId)) {
       throw new QuizSessionError("This quiz session was not found.", 404);
     }
 
@@ -98,7 +185,24 @@ export const createQuizService = ({
     if (!answersResult.success)
       throw new QuizSessionError("Submit one valid answer for each question.");
 
-    const details = session.quiz.questions.map((question) => {
+    const consumeFilter = {
+      quizId,
+      expiresAt: { $gt: new Date(now()) },
+      ...(session.userId ? { userId: session.userId } : {}),
+    };
+    let consumedSession;
+    try {
+      consumedSession = await consumeOne(storage, consumeFilter);
+    } catch {
+      throw storageError();
+    }
+    if (!consumedSession)
+      throw new QuizSessionError(
+        "This quiz has expired. Start a new quiz to continue.",
+        404,
+      );
+
+    const details = consumedSession.quiz.questions.map((question) => {
       const selectedAnswerIndex = answersResult.data[question.id];
       if (selectedAnswerIndex === undefined)
         throw new QuizSessionError("Answer every question before submitting.");
@@ -112,22 +216,21 @@ export const createQuizService = ({
     });
 
     const score = details.filter((answer) => answer.correct).length;
-    sessions.delete(quizId);
     const result = {
       score,
       total: details.length,
       percentage: Math.round((score / details.length) * 100),
       answers: details,
     };
-    if (session.userId) {
+    if (consumedSession.userId) {
       try {
         result.historySaved = Boolean(
           await onCompleted({
-            userId: session.userId,
-            concept: session.concept,
-            explanationLevel: session.explanationLevel,
+            userId: String(consumedSession.userId),
+            concept: consumedSession.concept,
+            explanationLevel: consumedSession.explanationLevel,
             result,
-            source: session.source,
+            source: consumedSession.source,
             quizId,
           }),
         );
@@ -138,7 +241,7 @@ export const createQuizService = ({
     return result;
   };
 
-  return { createQuiz, submitQuiz };
+  return { createQuiz, getQuiz, submitQuiz };
 };
 
 export const quizService = createQuizService({
@@ -159,6 +262,14 @@ export const quizService = createQuizService({
       total: result.total,
       percentage: result.percentage,
     });
+    if (concept?.id) {
+      await xpService
+        .awardConceptCompleted(userId, concept.id, {
+          checkAchievements: false,
+          updateStreak: false,
+        })
+        .catch(() => {});
+    }
     try {
       await xpService.awardQuizCompleted(userId, {
         quizId,

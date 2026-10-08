@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import morgan from "morgan";
 import healthRoutes from "./routes/health.routes.js";
 import conceptRoutes from "./routes/concept.routes.js";
@@ -22,8 +23,21 @@ const isLocalDevelopmentOrigin = (origin) =>
   process.env.NODE_ENV !== "production" &&
   /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 
-// Middlewares
-if (process.env.TRUST_PROXY === "true") app.set("trust proxy", 1);
+// Middlewares: Reverse Proxy & Security Headers
+if (
+  process.env.TRUST_PROXY === "true" ||
+  process.env.NODE_ENV === "production"
+) {
+  app.set("trust proxy", 1);
+}
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
 app.use(
   cors({
     origin: (origin, callback) => {

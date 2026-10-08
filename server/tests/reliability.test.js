@@ -459,24 +459,12 @@ test("real Express app serves health, validation, preview, and offline generatio
     assert.equal(explanation.body.source, "fallback");
     assert.equal(typeof explanation.body.explanation.beginner, "string");
 
-    const quiz = await post("/learning/quiz", { concept: FIXTURE_FLOWCHART });
-    assert.equal(quiz.status, 200);
-    assert.equal(quiz.body.source, "fallback");
-    assert.equal(quiz.body.quiz.questions.length, 5);
-    assert.ok(
-      quiz.body.quiz.questions.every(
-        (question) => !("correctAnswerIndex" in question),
-      ),
-    );
-
-    const answers = Object.fromEntries(
-      quiz.body.quiz.questions.map((question) => [question.id, 0]),
-    );
-    const submitted = await post(`/learning/quiz/${quiz.body.quizId}/submit`, {
-      answers,
+    const quizUnavailable = await post("/learning/quiz", {
+      concept: FIXTURE_FLOWCHART,
     });
-    assert.equal(submitted.status, 200);
-    assert.equal(submitted.body.result.total, 5);
+    assert.equal(quizUnavailable.status, 503);
+    assert.equal(quizUnavailable.body.success, false);
+    assert.match(quizUnavailable.body.message, /storage.*unavailable/i);
   } finally {
     server.close();
     await once(server, "close");

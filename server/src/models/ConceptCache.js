@@ -17,7 +17,6 @@ const conceptCacheSchema = new mongoose.Schema(
     cacheKey: {
       type: String,
       required: [true, "Cache key is required."],
-      unique: true,
       trim: true,
     },
     normalizedInput: {

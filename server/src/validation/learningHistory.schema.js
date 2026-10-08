@@ -43,19 +43,25 @@ export const learningActivityRequestSchema = z
   .strict()
   .superRefine(validateScoreFields);
 
+const isoDatetimeWithOffset = z
+  .string()
+  .datetime({ offset: true })
+  .optional();
+
 export const historyMigrationItemSchema = z
   .object({
     migrationKey: z.string().trim().min(1).max(240),
     concept: conceptSchema,
     explanationLevel: learningLevelSchema.optional(),
     source: z.enum(["sample", "gemini", "cache", "fallback"]).optional(),
-    createdAt: z.string().datetime().optional(),
-    lastAccessedAt: z.string().datetime().optional(),
+    createdAt: isoDatetimeWithOffset,
+    lastAccessedAt: isoDatetimeWithOffset,
     latestQuizScore: z
       .object({
         score: z.number().int().min(0),
         total: z.number().int().min(1).max(100),
         percentage: z.number().int().min(0).max(100),
+        completedAt: isoDatetimeWithOffset,
       })
       .strict()
       .optional(),
@@ -76,6 +82,6 @@ export const historyMigrationItemSchema = z
 
 export const historyMigrationRequestSchema = z
   .object({
-    items: z.array(historyMigrationItemSchema).max(50),
+    items: z.array(z.unknown()).max(50),
   })
   .strict();

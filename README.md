@@ -120,20 +120,34 @@ Copy-Item server/.env.example server/.env
 Copy-Item client/.env.example client/.env
 ```
 
-| Variable             | Where            | Purpose                                                          |
-| :------------------- | :--------------- | :--------------------------------------------------------------- |
-| `GEMINI_API_KEY`     | Backend          | Enables live Gemini content; keep secret.                        |
-| `GEMINI_MODEL`       | Backend          | Optional model override; defaults to `gemini-2.5-flash`.         |
-| `MONGODB_URI`        | Backend          | Optional validated-concept cache connection; keep secret.        |
-| `CLIENT_URL`         | Backend          | Comma-separated allowed browser origins; set for deployment.     |
-| `PORT`               | Backend          | Optional Express port; defaults to 5000.                         |
-| `NODE_ENV`           | Backend          | Set to `production` for deployment CORS policy.                  |
-| `AI_RATE_LIMIT`      | Backend          | Optional per-IP AI/learning request limit per 15-minute window.  |
-| `TRUST_PROXY`        | Backend          | Set to `true` only behind one trusted reverse proxy.             |
-| `VITE_API_URL`       | Client build     | API base URL; defaults to same-origin `/api`.                    |
-| `VITE_DEV_API_PROXY` | Client dev shell | Optional local Vite proxy target; defaults to backend port 5000. |
+### Environment Variables & Production Configuration
 
-Configure `GEMINI_API_KEY` for live AI. `MONGODB_URI` is optional; without it, cache reads/writes are skipped and Gemini or fallback still works. Keep backend credentials out of the client environment.
+| Variable             | Where            | Production Status | Purpose                                                                                     |
+| :------------------- | :--------------- | :---------------- | :------------------------------------------------------------------------------------------ |
+| `MONGODB_URI`        | Backend          | **Required**      | MongoDB connection URI. Powers sessions, XP, achievements, history, and cache.              |
+| `JWT_SECRET`         | Backend          | **Required**      | Cryptographically secure signing secret (>= 32 chars, Shannon entropy >= 3.0 bits/char).   |
+| `CLIENT_URL`         | Backend          | **Required**      | Comma-separated allowed frontend origins for CORS (e.g. `https://concept-flow-three.vercel.app`). |
+| `NODE_ENV`           | Backend          | **Required**      | Set to `production` for production security policies, Helmet headers, and index checks.     |
+| `GEMINI_API_KEY`     | Backend          | Conditional       | Required when live AI generation is enabled (`ENABLE_AI_GENERATION=true`). Keep secret.      |
+| `GEMINI_MODEL`       | Backend          | Optional          | Model override; defaults to `gemini-2.5-flash`.                                             |
+| `PORT`               | Backend          | Optional          | Express server port; defaults to 5000.                                                      |
+| `AI_RATE_LIMIT`      | Backend          | Optional          | Maximum concept/explanation requests per 15-minute window (default: 30).                    |
+| `AUTH_RATE_LIMIT`    | Backend          | Optional          | Maximum auth attempts per 15-minute window (default: 10).                                   |
+| `QUIZ_CREATION_RATE_LIMIT` | Backend    | Optional          | Maximum quiz creations per 15-minute window (default: 30).                                  |
+| `QUIZ_SUBMIT_RATE_LIMIT`   | Backend    | Optional          | Maximum quiz submissions per 15-minute window (default: 30).                                |
+| `PROGRESS_RATE_LIMIT`| Backend          | Optional          | Maximum progress/leaderboard reads per 15-minute window (default: 60).                       |
+| `MIGRATION_RATE_LIMIT`| Backend         | Optional          | Maximum learning-history migrations per 15-minute window (default: 10).                      |
+| `TRUST_PROXY`        | Backend          | Optional          | Set to `true` behind reverse proxies (Render, Cloudflare, etc.). Enabled by default in prod.|
+| `VITE_API_URL`       | Client build     | **Required**      | Deployed backend API base URL (e.g. `https://conceptflow-89iq.onrender.com/api`).           |
+| `VITE_DEV_API_PROXY` | Client dev shell | Optional          | Local Vite development proxy target; defaults to `http://localhost:5000`.                  |
+
+### Production Deployment Notes
+
+1. **MongoDB Connection**: MongoDB is mandatory for production operation. Quiz sessions are persisted in MongoDB (`quiz_sessions` collection) with single-use atomic consumption and a 2-hour TTL expiration index.
+2. **Critical Index Verification**: On production startup (`NODE_ENV=production`), Mongoose models are initialized and 7 critical database indexes are strictly verified against the live MongoDB database. If any critical index is missing or incorrect, startup intentionally halts with an exit code of 1.
+3. **API Keys & Privacy**: `GEMINI_API_KEY` and database credentials remain strictly server-side. Quiz answer keys and explanations are never disclosed prior to submission.
+4. **Frontend API URL**: The frontend build must configure `VITE_API_URL` pointing to the deployed backend `/api` endpoint. Standard Helmet security headers and CORS protection are active in production.
+
 
 To test the health endpoint:
 

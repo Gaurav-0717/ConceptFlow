@@ -6,6 +6,7 @@ import {
   registerRequestSchema,
 } from "../validation/auth.schema.js";
 import { User, getUserModel } from "../models/User.js";
+import { validateJwtSecret } from "../config/jwtValidation.js";
 
 const PASSWORD_ROUNDS = 12;
 const LOGIN_FAILURE_MESSAGE = "Invalid email or password.";
@@ -36,7 +37,15 @@ export const createAuthService = ({
 } = {}) => {
   const getSecret = () => {
     const secret = jwtSecret ?? process.env.JWT_SECRET;
-    if (typeof secret !== "string" || secret.length < 32) {
+    const isProd = process.env.NODE_ENV === "production";
+    const validation = validateJwtSecret(secret, { isProduction: isProd });
+    if (!validation.valid) {
+      if (isProd) {
+        throw new AuthServiceError(
+          "Authentication is not configured securely on the server.",
+          503,
+        );
+      }
       throw new AuthServiceError(
         "Authentication is not configured on the server.",
         503,

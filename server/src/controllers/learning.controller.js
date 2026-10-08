@@ -58,6 +58,17 @@ export const createLearningControllers = ({
     }
   },
 
+  getQuiz: async (req, res) => {
+    try {
+      const result = await quizzes.getQuiz(req.params.quizId, {
+        userId: req.user?.id,
+      });
+      return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      return respondWithSafeError(res, error);
+    }
+  },
+
   submitQuiz: async (req, res) => {
     try {
       const result = await quizzes.submitQuiz(
@@ -75,4 +86,5 @@ export const createLearningControllers = ({
 const controllers = createLearningControllers();
 export const generateExplanationController = controllers.generateExplanation;
 export const createQuizController = controllers.createQuiz;
+export const getQuizController = controllers.getQuiz;
 export const submitQuizController = controllers.submitQuiz;
