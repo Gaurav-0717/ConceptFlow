@@ -111,11 +111,10 @@ learningHistorySchema.index(
   },
 );
 
-learningHistorySchema.pre("validate", function (next) {
+learningHistorySchema.pre("validate", function () {
   if (this.isNew && this.isVerified === undefined) {
     this.isVerified = false;
   }
-  next();
 });
 
 export const LearningHistory =
