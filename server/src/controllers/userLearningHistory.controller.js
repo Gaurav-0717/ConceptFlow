@@ -10,10 +10,20 @@ import { xpService } from "../services/xpService.js";
 
 const respondWithHistoryError = (res, error) => {
   const status = error instanceof UserHistoryError ? error.statusCode : 503;
+
   const message =
     error instanceof UserHistoryError
       ? error.message
       : "Learning history is temporarily unavailable.";
+
+  console.error("[LearningHistory]", {
+    name: error?.name,
+    message: error?.message,
+    code: error?.code,
+    statusCode: error?.statusCode,
+    stack: error?.stack,
+  });
+
   return res.status(status).json({ success: false, message });
 };
 
