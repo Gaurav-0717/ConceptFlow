@@ -11,6 +11,7 @@ import {
 import { createUserLearningHistoryService } from "../src/services/userLearningHistoryService.js";
 import { createLearningRouter } from "../src/routes/learning.routes.js";
 import { FIXTURE_FLOWCHART } from "../src/fixtures/concept.fixtures.js";
+import { LearningHistory } from "../src/models/LearningHistory.js";
 
 const { ObjectId } = mongoose.Types;
 const TEST_JWT_SECRET = "test-secret-at-least-32-chars-long-for-migration-tests";
@@ -417,5 +418,138 @@ test("POST /api/learning/history/migrate: enforces rate limit (429)", async () =
     assert.equal(res3.status, 429);
   } finally {
     server.close();
+  }
+});
+
+test("POST /api/learning/history/migrate: migration upsert excludes updatedAt inside $setOnInsert", async () => {
+  let capturedUpdate = null;
+  const store = makeTestStore();
+  const originalUpdateOne = store.updateOne;
+  store.updateOne = async (filter, update, options) => {
+    capturedUpdate = update;
+    return originalUpdateOne(filter, update, options);
+  };
+
+  const service = createUserLearningHistoryService({
+    getCollection: async () => store,
+  });
+
+  const userId = new ObjectId().toString();
+  const item = {
+    migrationKey: "photosynthesis:2026-10-08T19:00:00.000Z",
+    concept: FIXTURE_FLOWCHART,
+    explanationLevel: "Intermediate",
+    source: "sample",
+  };
+
+  const result = await service.migrateActivities(userId, [item]);
+  assert.equal(result.migrated, 1);
+  assert.ok(capturedUpdate?.$setOnInsert, "Must use $setOnInsert");
+  assert.equal(
+    capturedUpdate.$setOnInsert.updatedAt,
+    undefined,
+    "updatedAt must NOT be included inside $setOnInsert to prevent Mongoose timestamp conflict",
+  );
+  assert.ok(capturedUpdate.$setOnInsert.createdAt, "createdAt must be preserved");
+  assert.equal(capturedUpdate.$setOnInsert.isVerified, false, "isVerified must be false");
+  assert.equal(capturedUpdate.$setOnInsert.migrationKey, item.migrationKey, "migrationKey must match");
+});
+
+test("LearningHistory model + migrateActivities: compiled driver update has no conflicting updatedAt operators (MongoServerError code 40 protection)", async () => {
+  const originalUpdateOne = LearningHistory.collection.updateOne;
+  const originalCountDocuments = LearningHistory.collection.countDocuments;
+  const originalFindOne = LearningHistory.collection.findOne;
+  const prevReadyState = mongoose.connection.readyState;
+
+  // Simulate active connection state so Mongoose does not buffer and dispatches to driver
+  mongoose.connection.readyState = 1;
+
+  let capturedDriverFilter = null;
+  let capturedDriverUpdate = null;
+  let capturedDriverOptions = null;
+
+  LearningHistory.collection.updateOne = async (filter, update, options) => {
+    capturedDriverFilter = filter;
+    capturedDriverUpdate = update;
+    capturedDriverOptions = options;
+    return {
+      acknowledged: true,
+      modifiedCount: 0,
+      upsertedCount: 1,
+      upsertedId: new ObjectId(),
+    };
+  };
+  LearningHistory.collection.countDocuments = async () => 0;
+  LearningHistory.collection.findOne = async () => null;
+
+  try {
+    const service = createUserLearningHistoryService({
+      model: LearningHistory,
+      getModel: async () => LearningHistory,
+    });
+
+    const userId = new ObjectId().toString();
+    const item = {
+      migrationKey: "photosynthesis:2026-10-08T19:00:00.000Z",
+      concept: FIXTURE_FLOWCHART,
+      explanationLevel: "Intermediate",
+      source: "sample",
+    };
+
+    const result = await service.migrateActivities(userId, [item]);
+    assert.equal(result.migrated, 1);
+    assert.equal(result.skipped, 0);
+
+    // 1. Verify driver call options
+    assert.equal(capturedDriverOptions?.upsert, true, "Driver call must specify upsert: true");
+
+    // 2. Mongoose automatically adds $set.updatedAt due to LearningHistory schema { timestamps: true }
+    assert.ok(
+      capturedDriverUpdate?.$set?.updatedAt,
+      "Mongoose timestamps must inject $set.updatedAt upon query compilation",
+    );
+
+    // 3. Migration payload must NOT have updatedAt inside $setOnInsert
+    assert.equal(
+      capturedDriverUpdate?.$setOnInsert?.updatedAt,
+      undefined,
+      "$setOnInsert must not contain updatedAt (would cause MongoServerError code 40 ConflictingUpdateOperators)",
+    );
+
+    // 4. Assert no overlapping field paths between $set and $setOnInsert (exact Code 40 guard)
+    const setKeys = Object.keys(capturedDriverUpdate?.$set || {});
+    const setOnInsertKeys = Object.keys(capturedDriverUpdate?.$setOnInsert || {});
+    const conflictingKeys = setKeys.filter((key) => setOnInsertKeys.includes(key));
+    assert.deepEqual(
+      conflictingKeys,
+      [],
+      "No overlapping update paths allowed between $set and $setOnInsert",
+    );
+
+    // 5. Verify security guarantees on compiled insert payload
+    assert.equal(
+      capturedDriverUpdate.$setOnInsert.isVerified,
+      false,
+      "isVerified must be explicitly false for untrusted migration",
+    );
+    assert.equal(
+      capturedDriverUpdate.$setOnInsert.completed,
+      false,
+      "completed must be false for untrusted migration",
+    );
+    assert.equal(
+      capturedDriverUpdate.$setOnInsert.migrationKey,
+      item.migrationKey,
+      "migrationKey must match",
+    );
+    assert.ok(
+      capturedDriverUpdate.$setOnInsert.createdAt,
+      "createdAt must be preserved in $setOnInsert",
+    );
+  } finally {
+    mongoose.connection.readyState = prevReadyState;
+    LearningHistory.collection.updateOne = originalUpdateOne;
+    if (originalCountDocuments) LearningHistory.collection.countDocuments = originalCountDocuments;
+    if (originalFindOne) LearningHistory.collection.findOne = originalFindOne;
   }
 });

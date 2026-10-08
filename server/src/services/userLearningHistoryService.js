@@ -296,9 +296,11 @@ export const createUserLearningHistoryService = ({
         },
       );
 
+      const { updatedAt: _discardUpdatedAt, ...insertDocument } = document;
+
       const result = await storage.updateOne(
         { userId, migrationKey: item.migrationKey },
-        { $setOnInsert: document },
+        { $setOnInsert: insertDocument },
         { upsert: true },
       );
       if (result.upsertedCount === 1) {
